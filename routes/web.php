@@ -30,4 +30,21 @@ Route::post('/contacts', [ContactController::class, 'store'])
     ->middleware(['auth', 'verified', 'role:admin,editor'])
     ->name('contacts.store');
 
+Route::get('/contacts/{contact}', [ContactController::class, 'show'])
+    ->middleware(['auth', 'verified'])
+    ->name('contacts.show');
+
+Route::get('/contacts/{contact}/edit', [ContactController::class, 'edit'])
+    ->middleware(['auth', 'verified', 'role:admin,editor'])
+    ->name('contacts.edit');
+
+Route::patch('/contacts/{contact}', [ContactController::class, 'update'])
+    ->middleware(['auth', 'verified', 'role:admin,editor'])
+    ->name('contacts.update');
+
+Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])
+    ->middleware(['auth', 'verified', 'role:admin'])
+    ->name('contacts.destroy');
+
+
 require __DIR__.'/auth.php';
