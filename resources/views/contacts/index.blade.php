@@ -23,6 +23,15 @@
                         </div>
                     @endif
 
+                    @if (auth()->user()?->role && in_array(auth()->user()->role, ['admin','editor'], true))
+                        <div class="mb-4">
+                            <div class="text-sm text-gray-500">
+                                {{ route('contacts.import.create') }}
+                            </div>
+                            <a class="underline" href="{{ route('contacts.import.create') }}">Import contacts</a>
+                        </div>
+                    @endif
+
                     <div class="mb-4">
                         <strong>Total:</strong> {{ $contacts->total() }}
                     </div>

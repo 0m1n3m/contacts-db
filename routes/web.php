@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\ContactImportController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -21,6 +22,22 @@ Route::middleware('auth')->group(function () {
 Route::get('/contacts', [ContactController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('contacts.index');
+
+Route::get('/contacts/import', [ContactImportController::class, 'create'])
+    ->middleware(['auth', 'verified', 'role:admin,editor'])
+    ->name('contacts.import.create');
+
+Route::post('/contacts/import/preview', [ContactImportController::class, 'preview'])
+    ->middleware(['auth', 'verified', 'role:admin,editor'])
+    ->name('contacts.import.preview');
+
+Route::post('/contacts/import/run', [ContactImportController::class, 'run'])
+    ->middleware(['auth', 'verified', 'role:admin,editor'])
+    ->name('contacts.import.run');
+
+Route::post('/contacts/import/run', [ContactImportController::class, 'run'])
+    ->middleware(['auth', 'verified', 'role:admin,editor'])
+    ->name('contacts.import.run');
 
 Route::get('/contacts/create', [ContactController::class, 'create'])
     ->middleware(['auth', 'verified', 'role:admin,editor'])
@@ -45,6 +62,5 @@ Route::patch('/contacts/{contact}', [ContactController::class, 'update'])
 Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])
     ->middleware(['auth', 'verified', 'role:admin'])
     ->name('contacts.destroy');
-
 
 require __DIR__.'/auth.php';
