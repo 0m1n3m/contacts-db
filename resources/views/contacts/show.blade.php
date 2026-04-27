@@ -17,6 +17,7 @@
 
                     <!-- Modal backdrop -->
                     <div x-show="open"
+                        x-cloak
                         x-transition.opacity
                         class="fixed inset-0 bg-black/50 z-50"
                         @click="open = false"
@@ -25,6 +26,7 @@
 
                     <!-- Modal panel -->
                     <div x-show="open"
+                        x-cloak
                         x-transition
                         class="fixed inset-0 z-50 flex items-center justify-center p-4"
                         aria-modal="true"

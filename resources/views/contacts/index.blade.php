@@ -204,13 +204,17 @@
                         </form>
 
                         <!-- Bulk delete modal -->
-                        <div x-show="bulkOpen" x-transition.opacity
+                        <div x-show="bulkOpen" 
+                            x-cloak 
+                            x-transition.opacity
                             class="fixed inset-0 bg-black/50 z-50"
                             @click="bulkOpen = false"
                             aria-hidden="true">
                         </div>
 
-                        <div x-show="bulkOpen" x-transition
+                        <div x-show="bulkOpen"
+                            x-cloak
+                            x-transition
                             class="fixed inset-0 z-50 flex items-center justify-center p-4"
                             aria-modal="true"
                             role="dialog">
