@@ -6,7 +6,11 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ContactImportController;
 
 Route::get('/', function () {
-    return view('welcome');
+    if (auth()->check()) {
+        return redirect()->route('contacts.index');
+    }
+
+    return redirect()->route('login');
 });
 
 Route::get('/dashboard', function () {
