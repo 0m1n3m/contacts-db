@@ -102,8 +102,8 @@
     @endphp
 
     <div class="py-6"
-         x-data="contactsIndexTable()"
-         x-init="init()">
+        x-data="contactsIndexTable({{ $contacts->pluck('id')->values()->toJson() }})"
+        x-init="init()">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
@@ -126,6 +126,27 @@
                                 {{ $compact ? 'Normal view' : 'Compact view' }}
                             </a>
 
+                            {{-- Pagination picker (querystring) --}}
+                            <form method="GET" action="{{ url()->current() }}" class="inline-flex items-center gap-2">
+                                {{-- conserva el resto de query params --}}
+                                @foreach (request()->except(['per_page','page']) as $k => $v)
+                                    @if (is_array($v))
+                                        @foreach ($v as $vv)
+                                            <input type="hidden" name="{{ $k }}[]" value="{{ $vv }}">
+                                        @endforeach
+                                    @else
+                                        <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+                                    @endif
+                                @endforeach
+
+                                <label class="text-sm text-gray-700">Per page</label>
+                                <select name="per_page" class="border rounded px-2 py-1 text-sm bg-[right_0px_center]" onchange="this.form.submit()">
+                                    @foreach ([10,25,50,100] as $n)
+                                        <option value="{{ $n }}" @selected((int)request('per_page',25) === $n)>{{ $n }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
+
                             {{-- Column picker --}}
                             <button type="button" class="underline" @click="columnsOpen = !columnsOpen">
                                 Columns
@@ -134,6 +155,15 @@
                             <button type="button" class="underline text-gray-700" @click="resetColumns()">
                                 Reset columns
                             </button>
+
+                            @if (auth()->user()?->role === 'admin')
+                                <button type="button"
+                                        class="underline text-red-700"
+                                        :class="selectedIds.length === 0 ? 'opacity-40 cursor-not-allowed' : ''"
+                                        @click="if (selectedIds.length > 0) bulkOpen = true">
+                                    Delete selected (<span x-text="selectedIds.length"></span>)
+                                </button>
+                            @endif
 
                             @if (auth()->user()?->role && in_array(auth()->user()->role, ['admin','editor'], true))
                                 <a class="underline" href="{{ route('contacts.create') }}">Create contact</a>
@@ -165,11 +195,72 @@
                         </div>
                     </div>
 
+                    @if (auth()->user()?->role === 'admin')
+                        <form id="bulkDeleteForm" method="POST" action="{{ route('contacts.bulk-destroy') }}">
+                            @csrf
+                            <template x-for="id in selectedIds" :key="id">
+                                <input type="hidden" name="ids[]" :value="id">
+                            </template>
+                        </form>
+
+                        <!-- Bulk delete modal -->
+                        <div x-show="bulkOpen" x-transition.opacity
+                            class="fixed inset-0 bg-black/50 z-50"
+                            @click="bulkOpen = false"
+                            aria-hidden="true">
+                        </div>
+
+                        <div x-show="bulkOpen" x-transition
+                            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                            aria-modal="true"
+                            role="dialog">
+                            <div class="w-full max-w-md rounded bg-white shadow-lg p-6"
+                                @click.stop>
+                                <h3 class="text-lg font-semibold text-gray-900">
+                                    Delete selected contacts?
+                                </h3>
+
+                                <p class="mt-2 text-sm text-gray-600">
+                                    You are about to delete <strong><span x-text="selectedIds.length"></span></strong> contact(s).
+                                    This action cannot be undone.
+                                </p>
+
+                                <div class="mt-6 flex justify-end gap-3">
+                                    <button type="button"
+                                            class="px-4 py-2 border rounded"
+                                            @click="bulkOpen = false">
+                                        Cancel
+                                    </button>
+
+                                    <button type="button"
+                                            class="px-4 py-2 rounded bg-red-700 text-white"
+                                            @click="
+                                                bulkOpen = false;
+                                                document.getElementById('bulkDeleteForm').submit();
+                                            ">
+                                        Yes, delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- IMPORTANT: sticky needs a scroll container --}}
                     <div class="overflow-auto border rounded max-h-[70vh]">
                         <table class="min-w-[1700px] w-full {{ $compact ? 'text-xs' : 'text-sm' }}">
                             <thead class="bg-gray-50 sticky top-0 z-20">
                                 <tr>
+                                    {{-- Admin only delete contact checkbox --}}
+                                    @if (auth()->user()?->role === 'admin')
+                                        <th class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50 w-[48px] min-w-[48px]">
+                                            <input type="checkbox"
+                                                x-ref="selectAll"
+                                                class="rounded"
+                                                :checked="allPageSelected()"
+                                                @change="toggleAllPage($event.target.checked)">
+                                        </th>
+                                    @endif
+
                                     {{-- First name --}}
                                     <th x-show="isVisible('first_name')"
                                         class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
@@ -307,6 +398,15 @@
                             <tbody>
                                 @forelse ($contacts as $contact)
                                     <tr class="odd:bg-white even:bg-gray-50 hover:bg-yellow-50">
+                                        @if (auth()->user()?->role === 'admin')
+                                            <td class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top w-[48px] min-w-[48px]">
+                                                <input type="checkbox"
+                                                    class="rounded"
+                                                    :checked="isSelected({{ $contact->id }})"
+                                                    @change="toggleRow({{ $contact->id }})">
+                                            </td>
+                                        @endif
+
                                         <td x-show="isVisible('first_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
                                             <a class="underline" href="{{ route('contacts.show', $contact) }}">
                                                 {{ $contact->first_name ?? '—' }}
@@ -398,7 +498,7 @@
 
                     {{-- Alpine component --}}
                     <script>
-                        function contactsIndexTable() {
+                        function contactsIndexTable(pageIds) {
                             const STORAGE_KEY = 'contacts.index.columns.v1';
 
                             const defaultVisible = {
@@ -423,7 +523,14 @@
                             };
 
                             return {
+                                // panel columns
                                 columnsOpen: false,
+                                bulkOpen: false,
+                                visible: { ...defaultVisible },
+
+                                // bulk select (page only)
+                                pageIds: Array.isArray(pageIds) ? pageIds : [],
+                                selectedIds: [],
 
                                 columnList: [
                                     { key: 'first_name', label: 'First name' },
@@ -446,9 +553,8 @@
                                     { key: 'updated_at', label: 'Updated' },
                                 ],
 
-                                visible: { ...defaultVisible },
-
                                 init() {
+                                    // load visible columns from localStorage
                                     try {
                                         const raw = localStorage.getItem(STORAGE_KEY);
                                         if (raw) {
@@ -458,11 +564,14 @@
                                             }
                                         }
                                     } catch (e) {
-                                        // ignore storage errors
+                                        // ignore
                                     }
+
+                                    // ensure select-all indeterminate is correct on load
+                                    this.syncSelectAllState();
                                 },
 
-                                persist() {
+                                persistColumns() {
                                     try {
                                         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.visible));
                                     } catch (e) {
@@ -476,12 +585,58 @@
 
                                 toggleColumn(key) {
                                     this.visible[key] = !this.isVisible(key);
-                                    this.persist();
+                                    this.persistColumns();
                                 },
 
                                 resetColumns() {
                                     this.visible = { ...defaultVisible };
-                                    this.persist();
+                                    this.persistColumns();
+                                },
+
+                                // -------- bulk selection (page only) --------
+                                isSelected(id) {
+                                    return this.selectedIds.includes(id);
+                                },
+
+                                toggleRow(id) {
+                                    if (this.isSelected(id)) {
+                                        this.selectedIds = this.selectedIds.filter(x => x !== id);
+                                    } else {
+                                        this.selectedIds = [...this.selectedIds, id];
+                                    }
+                                    this.syncSelectAllState();
+                                },
+
+                                selectedCountOnPage() {
+                                    const set = new Set(this.selectedIds);
+                                    return this.pageIds.filter(id => set.has(id)).length;
+                                },
+
+                                allPageSelected() {
+                                    if (this.pageIds.length === 0) return false;
+                                    return this.pageIds.every(id => this.selectedIds.includes(id));
+                                },
+
+                                toggleAllPage(checked) {
+                                    if (!checked) {
+                                        this.selectedIds = this.selectedIds.filter(id => !this.pageIds.includes(id));
+                                        this.syncSelectAllState();
+                                        return;
+                                    }
+
+                                    const set = new Set(this.selectedIds);
+                                    this.pageIds.forEach(id => set.add(id));
+                                    this.selectedIds = Array.from(set);
+                                    this.syncSelectAllState();
+                                },
+
+                                syncSelectAllState() {
+                                    // indeterminate when some (but not all) on this page are selected
+                                    if (!this.$refs || !this.$refs.selectAll) return;
+
+                                    const selectedOnPage = this.selectedCountOnPage();
+                                    this.$refs.selectAll.indeterminate =
+                                        selectedOnPage > 0 && selectedOnPage < this.pageIds.length;
                                 },
                             }
                         }

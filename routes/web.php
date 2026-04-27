@@ -35,10 +35,6 @@ Route::post('/contacts/import/run', [ContactImportController::class, 'run'])
     ->middleware(['auth', 'verified', 'role:admin,editor'])
     ->name('contacts.import.run');
 
-Route::post('/contacts/import/run', [ContactImportController::class, 'run'])
-    ->middleware(['auth', 'verified', 'role:admin,editor'])
-    ->name('contacts.import.run');
-
 Route::get('/contacts/create', [ContactController::class, 'create'])
     ->middleware(['auth', 'verified', 'role:admin,editor'])
     ->name('contacts.create');
@@ -46,6 +42,10 @@ Route::get('/contacts/create', [ContactController::class, 'create'])
 Route::post('/contacts', [ContactController::class, 'store'])
     ->middleware(['auth', 'verified', 'role:admin,editor'])
     ->name('contacts.store');
+
+Route::post('/contacts/bulk-destroy', [ContactController::class, 'bulkDestroy'])
+    ->middleware(['auth', 'verified', 'role:admin'])
+    ->name('contacts.bulk-destroy');
 
 Route::get('/contacts/{contact}', [ContactController::class, 'show'])
     ->middleware(['auth', 'verified'])

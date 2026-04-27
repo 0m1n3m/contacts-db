@@ -45,9 +45,12 @@ class ContactController extends Controller
             $query->orderBy($sort, $dir);
         }
 
+        $perPage = (int) request()->query('per_page', 25);
+        $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 25;
+
         $contacts = $query
             ->orderBy('id', 'desc')
-            ->paginate(20)
+            ->paginate($perPage)
             ->withQueryString();
 
         return view('contacts.index', compact('contacts', 'sort', 'dir', 'allowedSorts'));
@@ -200,10 +203,29 @@ class ContactController extends Controller
 
     public function destroy(Contact $contact)
     {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+        
         $contact->delete();
 
         return redirect()
             ->route('contacts.index')
             ->with('status', 'Contact deleted.');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        abort_unless(auth()->user()?->role === 'admin', 403);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'distinct', 'exists:contacts,id'],
+        ]);
+
+        \DB::transaction(function () use ($data) {
+            Contact::whereIn('id', $data['ids'])->delete();
+        });
+
+        return redirect()->route('contacts.index')
+            ->with('status', 'Deleted ' . count($data['ids']) . ' contact(s).');
     }
 }
