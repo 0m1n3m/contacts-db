@@ -71,6 +71,7 @@
         $phones = $contact->phones ?? [];
         $orgTypes = $contact->organisation_types ?? [];
         $keywords = $contact->keywords ?? [];
+        $expertise = $contact->expertise_speaking_topics ?? [];
     @endphp
 
     <div class="py-6">
@@ -183,7 +184,15 @@
 
                     <div>
                         <div class="text-sm text-gray-600">Expertise / speaking topics</div>
-                        <div class="whitespace-pre-line">{{ $contact->expertise_speaking_topics ?? '—' }}</div>
+                        @if (count($expertise))
+                            <ul class="list-disc ml-5">
+                                @foreach ($expertise as $x)
+                                    <li>{{ $x }}</li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <div>—</div>
+                        @endif
                     </div>
 
                     <div>

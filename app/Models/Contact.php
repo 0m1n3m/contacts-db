@@ -32,6 +32,7 @@ class Contact extends Model
         'phones' => 'array',
         'organisation_types' => 'array',
         'keywords' => 'array',
+        'expertise_speaking_topics' => 'array',
         'use_for_events' => 'boolean',
         'potential_speaker' => 'boolean',
     ];

@@ -114,7 +114,7 @@ class ContactController extends Controller
         $contact->keywords = $toLines($data['keywords_text'] ?? null);
 
         $contact->relevant_project_programme = $data['relevant_project_programme'] ?? null;
-        $contact->expertise_speaking_topics = $data['expertise_speaking_topics'] ?? null;
+        $contact->expertise_speaking_topics = $toLines($data['expertise_speaking_topics'] ?? null);
 
         $contact->stakeholder_type = $data['stakeholder_type'] ?? null;
         $contact->comment = $data['comment'] ?? null;
@@ -188,7 +188,7 @@ class ContactController extends Controller
         $contact->keywords = $toLines($data['keywords_text'] ?? null);
 
         $contact->relevant_project_programme = $data['relevant_project_programme'] ?? null;
-        $contact->expertise_speaking_topics = $data['expertise_speaking_topics'] ?? null;
+        $contact->expertise_speaking_topics = $toLines($data['expertise_speaking_topics'] ?? null);
 
         $contact->stakeholder_type = $data['stakeholder_type'] ?? null;
         $contact->comment = $data['comment'] ?? null;

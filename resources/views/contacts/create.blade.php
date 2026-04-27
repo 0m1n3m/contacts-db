@@ -83,14 +83,12 @@
 
                         <div>
                             <label class="block font-medium">Organisation types (one per line)</label>
-                            <input name="organisation_types_text" class="border rounded w-full"
-                                value="{{ old('organisation_types_text') }}">
+                            <textarea name="organisation_types_text" class="border rounded w-full" rows="4">{{ old('organisation_types_text') }}</textarea>
                         </div>
 
                         <div>
                             <label class="block font-medium">Keywords (one per line)</label>
-                            <input name="keywords_text" class="border rounded w-full"
-                                value="{{ old('keywords_text') }}">
+                            <textarea name="keywords_text" class="border rounded w-full" rows="4">{{ old('keywords_text') }}</textarea>
                         </div>
 
                         <div>
@@ -99,7 +97,7 @@
                         </div>
 
                         <div>
-                            <label class="block font-medium">Expertise / speaking topics</label>
+                            <label class="block font-medium">Expertise / speaking topics (one per line)</label>
                             <textarea name="expertise_speaking_topics" class="border rounded w-full" rows="4">{{ old('expertise_speaking_topics') }}</textarea>
                         </div>
 

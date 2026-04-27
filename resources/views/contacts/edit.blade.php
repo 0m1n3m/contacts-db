@@ -10,6 +10,7 @@
         $phonesText = old('phones_text', implode("\n", $contact->phones ?? []));
         $orgTypesText = old('organisation_types_text', implode("\n", $contact->organisation_types ?? []));
         $keywordsText = old('keywords_text', implode("\n", $contact->keywords ?? []));
+        $expertiseText = old('expertise_speaking_topics', implode("\n", $contact->expertise_speaking_topics ?? []));
     @endphp
 
     <div class="py-6">
@@ -114,8 +115,8 @@
                         </div>
 
                         <div>
-                            <label class="block font-medium">Expertise / speaking topics</label>
-                            <textarea name="expertise_speaking_topics" class="border rounded w-full" rows="4">{{ old('expertise_speaking_topics', $contact->expertise_speaking_topics) }}</textarea>
+                            <label class="block font-medium">Expertise / speaking topics (one per line)</label>
+                            <textarea name="expertise_speaking_topics" class="border rounded w-full" rows="4">{{ $expertiseText }}</textarea>
                         </div>
 
                         <div>

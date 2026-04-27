@@ -263,7 +263,7 @@ class ContactImportController extends Controller
                 'job_title' => $get($row, 'job_title'),
                 'country' => $get($row, 'country'),
                 'relevant_project_programme' => $get($row, 'relevant_project_programme'),
-                'expertise_speaking_topics' => $get($row, 'expertise_speaking_topics'),
+                'expertise_speaking_topics' => $parseList($get($row, 'expertise_speaking_topics')),
                 'stakeholder_type' => $get($row, 'stakeholder_type'),
                 'comment' => $get($row, 'comment'),
             ];
