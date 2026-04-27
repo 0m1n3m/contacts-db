@@ -10,11 +10,47 @@ class ContactController extends Controller
 {
     public function index(Request $request)
     {
-        $contacts = Contact::query()
-            ->orderByDesc('updated_at')
-            ->paginate(20);
+        // whitelist: columnas ordenables (no JSON)
+        $allowedSorts = [
+            'contact_category',
+            'relationship_status',
+            'use_for_events',
+            'potential_speaker',
+            'organisation_name',
+            'first_name',
+            'last_name',
+            'job_title',
+            'country',
+            'relevant_project_programme',
+            'stakeholder_type',
+            'created_at',
+            'updated_at',
+        ];
 
-        return view('contacts.index', compact('contacts'));
+        $sort = $request->query('sort', 'updated_at');
+        $dir  = $request->query('dir', 'desc');
+
+        if (!in_array($sort, $allowedSorts, true)) {
+            $sort = 'updated_at';
+        }
+
+        $dir = strtolower($dir) === 'asc' ? 'asc' : 'desc';
+
+        $query = Contact::query();
+
+        if (in_array($sort, ['first_name', 'last_name', 'organisation_name', 'job_title', 'stakeholder_type', 'country', 'contact_category', 'relationship_status', 'relevant_project_programme'], true)) {
+            // Orden “normalizado” para texto
+            $query->orderByRaw("TRIM(LOWER($sort)) $dir");
+        } else {
+            $query->orderBy($sort, $dir);
+        }
+
+        $contacts = $query
+            ->orderBy('id', 'desc')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('contacts.index', compact('contacts', 'sort', 'dir', 'allowedSorts'));
     }
 
     public function create()
