@@ -18,6 +18,9 @@
                     <x-nav-link :href="route('contacts.index')" :active="request()->routeIs('contacts.*')">
                         {{ __('Contacts') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('admin.invitations.index')" :active="request()->routeIs('admin.invitations.*')">
+                        {{ __('Invitations') }}
+                    </x-nav-link>
                 </div>
             </div>
 
