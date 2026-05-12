@@ -69,7 +69,7 @@
         };
 
         // Render as chips (keywords/orgTypes/expertise)
-        $chipsOrDash = function ($value) {
+        $chipsOrDash = function ($value, ?string $filterKey = null) {
             if (empty($value)) return '—';
 
             if (is_string($value)) {
@@ -91,9 +91,23 @@
 
             $html = '<div class="flex flex-wrap gap-1.5">';
             foreach ($items as $item) {
-                $html .= '<span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-800">'
-                      . e($item) .
-                      '</span>';
+                $label = e($item);
+
+                if ($filterKey) {
+                    $url = request()->fullUrlWithQuery([
+                        $filterKey => $item,
+                        'page' => 1,
+                    ]);
+
+                    $html .= '<a href="' . e($url) . '"'
+                        . ' class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-800 hover:bg-gray-100">'
+                        . $label .
+                        '</a>';
+                } else {
+                    $html .= '<span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-800">'
+                        . $label .
+                        '</span>';
+                }
             }
             $html .= '</div>';
 
@@ -118,6 +132,59 @@
                         <div class="text-sm">
                             <strong>Total:</strong> {{ $contacts->total() }}
                         </div>
+
+                        {{-- Global search --}}
+                        <form method="GET" action="{{ url()->current() }}" class="mb-4 flex flex-wrap items-center gap-2">
+                            {{-- Preserve ALL current query params except q/page --}}
+                            @foreach (request()->except(['q','page']) as $k => $v)
+                                @if (is_array($v))
+                                    @foreach ($v as $vv)
+                                        <input type="hidden" name="{{ $k }}[]" value="{{ $vv }}">
+                                    @endforeach
+                                @else
+                                    <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+                                @endif
+                            @endforeach
+
+                            <label class="text-sm text-gray-700">Search</label>
+
+                            <input
+                                type="text"
+                                name="q"
+                                value="{{ request('q') }}"
+                                placeholder="Search..."
+                                class="border rounded px-3 py-2 text-sm w-[320px]"
+                            >
+
+                            <button type="submit" class="px-3 py-2 border rounded text-sm">
+                                Apply
+                            </button>
+
+                            <a
+                                class="px-3 py-2 border rounded text-sm"
+                                href="{{ request()->fullUrlWithQuery([
+                                    'q' => null,
+                                    'first_name' => null,
+                                    'last_name' => null,
+                                    'organisation_name' => null,
+                                    'country' => null,
+                                    'stakeholder_type' => null,
+                                    'keywords' => null,
+                                    'organisation_types' => null,
+                                    'emails' => null,
+                                    'phones' => null,
+                                    'expertise_speaking_topics' => null,
+                                    'contact_category' => null,
+                                    'relationship_status' => null,
+                                    'job_title' => null,
+                                    'relevant_project_programme' => null,
+                                    'comment' => null,
+                                    'page' => 1,
+                                ]) }}"
+                            >
+                                Clear
+                            </a>
+                        </form>
 
                         <div class="flex flex-wrap items-center gap-4 text-sm">
                             {{-- Compact toggle (querystring) --}}
@@ -164,6 +231,13 @@
                                     Delete selected (<span x-text="selectedIds.length"></span>)
                                 </button>
                             @endif
+
+                            <button type="button"
+                                class="underline text-blue-700"
+                                :class="selectedIds.length === 0 ? 'opacity-40 cursor-not-allowed' : ''"
+                                @click="if (selectedIds.length > 0) document.getElementById('exportSelectedForm').submit()">
+                                Export selected (CSV) (<span x-text="selectedIds.length"></span>)
+                            </button>
 
                             @if (auth()->user()?->role && in_array(auth()->user()->role, ['admin','editor'], true))
                                 <a class="underline" href="{{ route('contacts.create') }}">Create contact</a>
@@ -249,252 +323,389 @@
                         </div>
                     @endif
 
-                    {{-- IMPORTANT: sticky needs a scroll container --}}
-                    <div class="overflow-auto border rounded max-h-[70vh]">
-                        <table class="min-w-[1700px] w-full {{ $compact ? 'text-xs' : 'text-sm' }}">
-                            <thead class="bg-gray-50 sticky top-0 z-20">
-                                <tr>
-                                    {{-- Admin only delete contact checkbox --}}
-                                    @if (auth()->user()?->role === 'admin')
-                                        <th class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50 w-[48px] min-w-[48px]">
-                                            <input type="checkbox"
-                                                x-ref="selectAll"
-                                                class="rounded"
-                                                :checked="allPageSelected()"
-                                                @change="toggleAllPage($event.target.checked)">
-                                        </th>
-                                    @endif
+                    <form id="exportSelectedForm" method="POST" action="{{ route('contacts.export') }}">
+                        @csrf
+                        <template x-for="id in selectedIds" :key="'export-' + id">
+                            <input type="hidden" name="ids[]" :value="id">
+                        </template>
+                    </form>
 
-                                    {{-- First name --}}
-                                    <th x-show="isVisible('first_name')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('first_name') }}">
-                                            First name {!! $sortIcon('first_name') !!}
-                                        </a>
-                                    </th>
+                    <form id="contactsFilters" method="GET" action="{{ url()->current() }}">
+                        <input type="hidden" name="sort" value="{{ request('sort', $sort) }}">
+                        <input type="hidden" name="dir" value="{{ request('dir', $dir) }}">
+                        <input type="hidden" name="per_page" value="{{ request('per_page', 25) }}">
+                        <input type="hidden" name="compact" value="{{ request('compact', 0) }}">
+                        <input type="hidden" name="q" value="{{ request('q') }}">
+                        <input type="hidden" name="page" value="1">
 
-                                    {{-- Last name --}}
-                                    <th x-show="isVisible('last_name')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('last_name') }}">
-                                            Last name {!! $sortIcon('last_name') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Organisation --}}
-                                    <th x-show="isVisible('organisation_name')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('organisation_name') }}">
-                                            Organisation {!! $sortIcon('organisation_name') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Contact category --}}
-                                    <th x-show="isVisible('contact_category')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('contact_category') }}">
-                                            Contact category {!! $sortIcon('contact_category') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Relationship status --}}
-                                    <th x-show="isVisible('relationship_status')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('relationship_status') }}">
-                                            Relationship status {!! $sortIcon('relationship_status') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Use for events --}}
-                                    <th x-show="isVisible('use_for_events')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('use_for_events') }}">
-                                            Use for events {!! $sortIcon('use_for_events') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Potential speaker --}}
-                                    <th x-show="isVisible('potential_speaker')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('potential_speaker') }}">
-                                            Potential speaker {!! $sortIcon('potential_speaker') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Job title --}}
-                                    <th x-show="isVisible('job_title')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('job_title') }}">
-                                            Job title {!! $sortIcon('job_title') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Emails --}}
-                                    <th x-show="isVisible('emails')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        Emails
-                                    </th>
-
-                                    {{-- Phones --}}
-                                    <th x-show="isVisible('phones')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50 w-[280px] min-w-[280px]">
-                                        Phones
-                                    </th>
-
-                                    {{-- Country --}}
-                                    <th x-show="isVisible('country')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('country') }}">
-                                            Country {!! $sortIcon('country') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Organisation types --}}
-                                    <th x-show="isVisible('organisation_types')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        Organisation types
-                                    </th>
-
-                                    {{-- Keywords --}}
-                                    <th x-show="isVisible('keywords')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        Keywords
-                                    </th>
-
-                                    {{-- Relevant project/programme --}}
-                                    <th x-show="isVisible('relevant_project_programme')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('relevant_project_programme') }}">
-                                            Relevant project / programme {!! $sortIcon('relevant_project_programme') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Expertise --}}
-                                    <th x-show="isVisible('expertise_speaking_topics')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        Expertise / speaking topics
-                                    </th>
-
-                                    {{-- Stakeholder type --}}
-                                    <th x-show="isVisible('stakeholder_type')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('stakeholder_type') }}">
-                                            Stakeholder type {!! $sortIcon('stakeholder_type') !!}
-                                        </a>
-                                    </th>
-
-                                    {{-- Comment --}}
-                                    <th x-show="isVisible('comment')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        Comment
-                                    </th>
-
-                                    {{-- Updated --}}
-                                    <th x-show="isVisible('updated_at')"
-                                        class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
-                                        <a class="underline" href="{{ $sortLink('updated_at') }}">
-                                            Updated {!! $sortIcon('updated_at') !!}
-                                        </a>
-                                    </th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                @forelse ($contacts as $contact)
-                                    <tr class="odd:bg-white even:bg-gray-50 hover:bg-yellow-50">
+                        <div class="mb-2 flex items-center gap-2">
+                            <button type="submit" class="px-3 py-2 border rounded text-sm">
+                                Apply column filters
+                            </button>
+                            <span class="text-xs text-gray-600">Tip: you can also press Enter in a filter input.</span>
+                        </div>
+                        {{-- IMPORTANT: sticky needs a scroll container --}}
+                        <div class="overflow-auto border rounded max-h-[70vh]">
+                            <table class="min-w-[1700px] w-full {{ $compact ? 'text-xs' : 'text-sm' }}">
+                                <thead class="bg-gray-50 sticky top-0 z-20">
+                                    <tr>
+                                        {{-- Admin only delete contact checkbox --}}
                                         @if (auth()->user()?->role === 'admin')
-                                            <td class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top w-[48px] min-w-[48px]">
+                                            <th class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50 w-[48px] min-w-[48px]">
                                                 <input type="checkbox"
+                                                    x-ref="selectAll"
                                                     class="rounded"
-                                                    :checked="isSelected({{ $contact->id }})"
-                                                    @change="toggleRow({{ $contact->id }})">
-                                            </td>
+                                                    :checked="allPageSelected()"
+                                                    @change="toggleAllPage($event.target.checked)">
+                                            </th>
                                         @endif
 
-                                        <td x-show="isVisible('first_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            <a class="underline" href="{{ route('contacts.show', $contact) }}">
-                                                {{ $contact->first_name ?? '—' }}
+                                        {{-- First name --}}
+                                        <th x-show="isVisible('first_name')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('first_name') }}">
+                                                First name {!! $sortIcon('first_name') !!}
                                             </a>
-                                        </td>
+                                        </th>
 
-                                        <td x-show="isVisible('last_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            {{ $contact->last_name ?? '—' }}
-                                        </td>
+                                        {{-- Last name --}}
+                                        <th x-show="isVisible('last_name')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('last_name') }}">
+                                                Last name {!! $sortIcon('last_name') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('organisation_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {{ $contact->organisation_name ?? '—' }}
-                                        </td>
+                                        {{-- Organisation --}}
+                                        <th x-show="isVisible('organisation_name')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('organisation_name') }}">
+                                                Organisation {!! $sortIcon('organisation_name') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('contact_category')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            {{ $textOrDash($contact->contact_category) }}
-                                        </td>
+                                        {{-- Contact category --}}
+                                        <th x-show="isVisible('contact_category')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('contact_category') }}">
+                                                Contact category {!! $sortIcon('contact_category') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('relationship_status')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            {{ $textOrDash($contact->relationship_status) }}
-                                        </td>
+                                        {{-- Relationship status --}}
+                                        <th x-show="isVisible('relationship_status')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('relationship_status') }}">
+                                                Relationship status {!! $sortIcon('relationship_status') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('use_for_events')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            {{ $boolLabel($contact->use_for_events) }}
-                                        </td>
+                                        {{-- Use for events --}}
+                                        <th x-show="isVisible('use_for_events')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('use_for_events') }}">
+                                                Use for events {!! $sortIcon('use_for_events') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('potential_speaker')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            {{ $boolLabel($contact->potential_speaker) }}
-                                        </td>
+                                        {{-- Potential speaker --}}
+                                        <th x-show="isVisible('potential_speaker')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('potential_speaker') }}">
+                                                Potential speaker {!! $sortIcon('potential_speaker') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('job_title')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {{ $contact->job_title ?? '—' }}
-                                        </td>
+                                        {{-- Job title --}}
+                                        <th x-show="isVisible('job_title')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('job_title') }}">
+                                                Job title {!! $sortIcon('job_title') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('emails')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {!! $listOrDash($contact->emails) !!}
-                                        </td>
+                                        {{-- Emails --}}
+                                        <th x-show="isVisible('emails')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            Emails
+                                        </th>
 
-                                        <td x-show="isVisible('phones')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top w-[280px] min-w-[280px]">
-                                            {!! $listOrDash($contact->phones) !!}
-                                        </td>
+                                        {{-- Phones --}}
+                                        <th x-show="isVisible('phones')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50 w-[280px] min-w-[280px]">
+                                            Phones
+                                        </th>
 
-                                        <td x-show="isVisible('country')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            {{ $countryName($contact->country) ?? '—' }}
-                                        </td>
+                                        {{-- Country --}}
+                                        <th x-show="isVisible('country')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('country') }}">
+                                                Country {!! $sortIcon('country') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('organisation_types')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {!! $chipsOrDash($contact->organisation_types) !!}
-                                        </td>
+                                        {{-- Organisation types --}}
+                                        <th x-show="isVisible('organisation_types')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            Organisation types
+                                        </th>
 
-                                        <td x-show="isVisible('keywords')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {!! $chipsOrDash($contact->keywords) !!}
-                                        </td>
+                                        {{-- Keywords --}}
+                                        <th x-show="isVisible('keywords')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            Keywords
+                                        </th>
 
-                                        <td x-show="isVisible('relevant_project_programme')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {{ $contact->relevant_project_programme ?? '—' }}
-                                        </td>
+                                        {{-- Relevant project/programme --}}
+                                        <th x-show="isVisible('relevant_project_programme')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('relevant_project_programme') }}">
+                                                Relevant project / programme {!! $sortIcon('relevant_project_programme') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('expertise_speaking_topics')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {!! $chipsOrDash($contact->expertise_speaking_topics) !!}
-                                        </td>
+                                        {{-- Expertise --}}
+                                        <th x-show="isVisible('expertise_speaking_topics')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            Expertise / speaking topics
+                                        </th>
 
-                                        <td x-show="isVisible('stakeholder_type')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
-                                            {{ $contact->stakeholder_type ?? '—' }}
-                                        </td>
+                                        {{-- Stakeholder type --}}
+                                        <th x-show="isVisible('stakeholder_type')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('stakeholder_type') }}">
+                                                Stakeholder type {!! $sortIcon('stakeholder_type') !!}
+                                            </a>
+                                        </th>
 
-                                        <td x-show="isVisible('comment')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
-                                            {{ $contact->comment ?? '—' }}
-                                        </td>
+                                        {{-- Comment --}}
+                                        <th x-show="isVisible('comment')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            Comment
+                                        </th>
 
-                                        <td x-show="isVisible('updated_at')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap text-gray-600">
-                                            {{ optional($contact->updated_at)->format('Y-m-d H:i') ?? '—' }}
-                                        </td>
+                                        {{-- Updated --}}
+                                        <th x-show="isVisible('updated_at')"
+                                            class="text-left px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b whitespace-nowrap bg-gray-50">
+                                            <a class="underline" href="{{ $sortLink('updated_at') }}">
+                                                Updated {!! $sortIcon('updated_at') !!}
+                                            </a>
+                                        </th>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="18" class="px-3 py-6 text-center text-gray-600">
-                                            No contacts yet.
-                                        </td>
+                                    <tr class="bg-gray-50">
+                                        @if (auth()->user()?->role === 'admin')
+                                            <th class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50"></th>
+                                        @endif
+
+                                        <th x-show="isVisible('first_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="first_name"
+                                                value="{{ request('first_name') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('last_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="last_name"
+                                                value="{{ request('last_name') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('organisation_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="organisation_name"
+                                                value="{{ request('organisation_name') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('contact_category')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="contact_category"
+                                                value="{{ request('contact_category') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('relationship_status')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="relationship_status"
+                                                value="{{ request('relationship_status') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('use_for_events')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50"></th>
+                                        <th x-show="isVisible('potential_speaker')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50"></th>
+
+                                        <th x-show="isVisible('job_title')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="job_title"
+                                                value="{{ request('job_title') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('emails')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="emails"
+                                                value="{{ request('emails') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="email contains">
+                                        </th>
+
+                                        <th x-show="isVisible('phones')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="phones"
+                                                value="{{ request('phones') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="phone contains">
+                                        </th>
+
+                                        <th x-show="isVisible('country')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="country"
+                                                value="{{ request('country') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="ES, US...">
+                                        </th>
+
+                                        <th x-show="isVisible('organisation_types')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="organisation_types"
+                                                value="{{ request('organisation_types') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Type contains">
+                                        </th>
+
+                                        <th x-show="isVisible('keywords')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="keywords"
+                                                value="{{ request('keywords') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Keyword contains">
+                                        </th>
+
+                                        <th x-show="isVisible('relevant_project_programme')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="relevant_project_programme"
+                                                value="{{ request('relevant_project_programme') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('expertise_speaking_topics')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="expertise_speaking_topics"
+                                                value="{{ request('expertise_speaking_topics') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Topic contains">
+                                        </th>
+
+                                        <th x-show="isVisible('stakeholder_type')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="stakeholder_type"
+                                                value="{{ request('stakeholder_type') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('comment')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <input name="comment"
+                                                value="{{ request('comment') }}"
+                                                class="w-full border rounded px-2 py-1 text-xs"
+                                                placeholder="Filter">
+                                        </th>
+
+                                        <th x-show="isVisible('updated_at')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50"></th>
                                     </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+
+                                <tbody>
+                                    @forelse ($contacts as $contact)
+                                        <tr class="odd:bg-white even:bg-gray-50 hover:bg-yellow-50">
+                                            @if (auth()->user()?->role === 'admin')
+                                                <td class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top w-[48px] min-w-[48px]">
+                                                    <input type="checkbox"
+                                                        class="rounded"
+                                                        :checked="isSelected({{ $contact->id }})"
+                                                        @change="toggleRow({{ $contact->id }})">
+                                                </td>
+                                            @endif
+
+                                            <td x-show="isVisible('first_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                <a class="underline" href="{{ route('contacts.show', $contact) }}">
+                                                    {{ $contact->first_name ?? '—' }}
+                                                </a>
+                                            </td>
+
+                                            <td x-show="isVisible('last_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                {{ $contact->last_name ?? '—' }}
+                                            </td>
+
+                                            <td x-show="isVisible('organisation_name')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {{ $contact->organisation_name ?? '—' }}
+                                            </td>
+
+                                            <td x-show="isVisible('contact_category')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                {{ $textOrDash($contact->contact_category) }}
+                                            </td>
+
+                                            <td x-show="isVisible('relationship_status')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                {{ $textOrDash($contact->relationship_status) }}
+                                            </td>
+
+                                            <td x-show="isVisible('use_for_events')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                {{ $boolLabel($contact->use_for_events) }}
+                                            </td>
+
+                                            <td x-show="isVisible('potential_speaker')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                {{ $boolLabel($contact->potential_speaker) }}
+                                            </td>
+
+                                            <td x-show="isVisible('job_title')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {{ $contact->job_title ?? '—' }}
+                                            </td>
+
+                                            <td x-show="isVisible('emails')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {!! $listOrDash($contact->emails) !!}
+                                            </td>
+
+                                            <td x-show="isVisible('phones')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top w-[280px] min-w-[280px]">
+                                                {!! $listOrDash($contact->phones) !!}
+                                            </td>
+
+                                            <td x-show="isVisible('country')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                {{ $countryName($contact->country) ?? '—' }}
+                                            </td>
+
+                                            <td x-show="isVisible('organisation_types')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {!! $chipsOrDash($contact->organisation_types, 'organisation_types') !!}
+                                            </td>
+
+                                            <td x-show="isVisible('keywords')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {!! $chipsOrDash($contact->keywords, 'keywords') !!}
+                                            </td>
+
+                                            <td x-show="isVisible('relevant_project_programme')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {{ $contact->relevant_project_programme ?? '—' }}
+                                            </td>
+
+                                            <td x-show="isVisible('expertise_speaking_topics')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {!! $chipsOrDash($contact->expertise_speaking_topics, 'expertise_speaking_topics') !!}
+                                            </td>
+
+                                            <td x-show="isVisible('stakeholder_type')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                                {{ $contact->stakeholder_type ?? '—' }}
+                                            </td>
+
+                                            <td x-show="isVisible('comment')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top">
+                                                {{ $contact->comment ?? '—' }}
+                                            </td>
+
+                                            <td x-show="isVisible('updated_at')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap text-gray-600">
+                                                {{ optional($contact->updated_at)->format('Y-m-d H:i') ?? '—' }}
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="18" class="px-3 py-6 text-center text-gray-600">
+                                                No contacts yet.
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
 
                     <div class="mt-6">
                         {{ $contacts->links() }}

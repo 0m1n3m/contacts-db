@@ -41,6 +41,10 @@ Route::post('/contacts/import/run', [ContactImportController::class, 'run'])
     ->middleware(['auth', 'verified', 'role:admin,editor'])
     ->name('contacts.import.run');
 
+Route::post('/contacts/export', [ContactController::class, 'export'])
+    ->middleware(['auth', 'verified'])
+    ->name('contacts.export');
+
 Route::get('/contacts/create', [ContactController::class, 'create'])
     ->middleware(['auth', 'verified', 'role:admin,editor'])
     ->name('contacts.create');

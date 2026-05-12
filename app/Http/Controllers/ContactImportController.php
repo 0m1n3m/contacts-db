@@ -105,7 +105,10 @@ class ContactImportController extends Controller
             $s = preg_replace('/\s+/u', ' ', $s);
             $s = str_replace(['/', '\\'], ' ', $s);
             $s = preg_replace('/[()]/', '', $s);
-            $s = preg_replace('/[^a-z0-9 ]/iu', '', $s);
+
+            // allow underscore in headers like contact_category
+            $s = preg_replace('/[^a-z0-9 _]/iu', '', $s);
+
             $s = str_replace(' ', '_', $s);
             $s = preg_replace('/_+/', '_', $s);
             return trim($s, '_');
@@ -123,12 +126,40 @@ class ContactImportController extends Controller
             }
         }
 
-        // Minimal aliases
-        if (isset($originalByNormalized['organisation'])) {
-            $autoMap['organisation_name'] = $originalByNormalized['organisation'];
-        }
-        if (isset($originalByNormalized['email'])) {
-            $autoMap['emails'] = $originalByNormalized['email'];
+        // Aliases (normalized header -> field)
+        $aliases = [
+            // Organisation
+            'organisation' => 'organisation_name',
+            'organization' => 'organisation_name',
+            'org' => 'organisation_name',
+            'organisation_name' => 'organisation_name',
+
+            // Emails
+            'email' => 'emails',
+            'e_mail' => 'emails',
+
+            // Phones
+            'phone' => 'phones',
+            'telephone' => 'phones',
+            'tel' => 'phones',
+
+            // Other common header variants
+            'organization_types' => 'organisation_types',
+            'org_types' => 'organisation_types',
+
+            'expertise' => 'expertise_speaking_topics',
+            'speaking_topics' => 'expertise_speaking_topics',
+
+            'project_programme' => 'relevant_project_programme',
+        ];
+
+        foreach ($aliases as $normalizedHeader => $field) {
+            if (!array_key_exists($field, $fields)) continue;
+
+            // only set if not already mapped, and if the header exists in the file
+            if (!isset($autoMap[$field]) && isset($originalByNormalized[$normalizedHeader])) {
+                $autoMap[$field] = $originalByNormalized[$normalizedHeader];
+            }
         }
 
         return view('contacts.import-map', [
@@ -232,10 +263,33 @@ class ContactImportController extends Controller
             $s = trim((string) $value);
             if ($s === '') return [];
 
-            $delimiter = str_contains($s, ';') ? ';' : (str_contains($s, ',') ? ',' : null);
+            // Excel "text" prefix
+            if (strlen($s) > 0 && $s[0] === "'") {
+                $s = ltrim($s, "'");
+                $s = trim($s);
+            }
+
+            // JSON array support (best for round-trip)
+            if (str_starts_with($s, '[')) {
+                $decoded = json_decode($s, true);
+                if (is_array($decoded)) {
+                    $decoded = array_map(fn ($x) => trim((string) $x), $decoded);
+                    return array_values(array_filter($decoded, fn ($x) => $x !== ''));
+                }
+            }
+
+            // fallback delimiters for "human" CSVs
+            $delimiter = null;
+            foreach ([';', ',', '|'] as $d) {
+                if (str_contains($s, $d)) {
+                    $delimiter = $d;
+                    break;
+                }
+            }
 
             $parts = $delimiter ? explode($delimiter, $s) : [$s];
             $parts = array_map(fn ($p) => trim($p), $parts);
+
             return array_values(array_filter($parts, fn ($p) => $p !== ''));
         };
 
