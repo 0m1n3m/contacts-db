@@ -179,6 +179,8 @@
                                     'job_title' => null,
                                     'relevant_project_programme' => null,
                                     'comment' => null,
+                                    'use_for_events' => null,
+                                    'potential_speaker' => null,
                                     'page' => 1,
                                 ]) }}"
                             >
@@ -532,8 +534,27 @@
                                                 placeholder="Filter">
                                         </th>
 
-                                        <th x-show="isVisible('use_for_events')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50"></th>
-                                        <th x-show="isVisible('potential_speaker')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50"></th>
+                                        <th x-show="isVisible('use_for_events')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <label class="inline-flex items-center gap-2 select-none">
+                                                <input type="checkbox"
+                                                    name="use_for_events"
+                                                    value="1"
+                                                    onchange="this.form.submit()"
+                                                    {{ request('use_for_events') ? 'checked' : '' }}>
+                                                <span class="text-xs">Yes</span>
+                                            </label>
+                                        </th>
+
+                                        <th x-show="isVisible('potential_speaker')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
+                                            <label class="inline-flex items-center gap-2 select-none">
+                                                <input type="checkbox"
+                                                    name="potential_speaker"
+                                                    value="1"
+                                                    onchange="this.form.submit()"
+                                                    {{ request('potential_speaker') ? 'checked' : '' }}>
+                                                <span class="text-xs">Yes</span>
+                                            </label>
+                                        </th>
 
                                         <th x-show="isVisible('job_title')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b bg-gray-50">
                                             <input name="job_title"
@@ -643,11 +664,11 @@
                                                 {{ $textOrDash($contact->relationship_status) }}
                                             </td>
 
-                                            <td x-show="isVisible('use_for_events')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                            <td x-show="isVisible('use_for_events')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b text-center align-top whitespace-nowrap">
                                                 {{ $boolLabel($contact->use_for_events) }}
                                             </td>
 
-                                            <td x-show="isVisible('potential_speaker')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b align-top whitespace-nowrap">
+                                            <td x-show="isVisible('potential_speaker')" class="px-3 {{ $compact ? 'py-1' : 'py-2' }} border-b text-center align-top whitespace-nowrap">
                                                 {{ $boolLabel($contact->potential_speaker) }}
                                             </td>
 

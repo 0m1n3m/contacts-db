@@ -62,6 +62,27 @@ class ContactController extends Controller
             }
         }
 
+        // Boolean checkbox filters (use_for_events, potential_speaker)
+        $boolFilters = [
+            'use_for_events' => $request->query('use_for_events', null),
+            'potential_speaker' => $request->query('potential_speaker', null),
+        ];
+
+        $toBool = function ($v) {
+            if ($v === null) return null;
+            $s = mb_strtolower(trim((string) $v));
+            if (in_array($s, ['1', 'true', 'yes', 'y', 'on'], true)) return true;
+            if (in_array($s, ['0', 'false', 'no', 'n', 'off'], true)) return false;
+            return null;
+        };
+
+        foreach ($boolFilters as $col => $raw) {
+            $b = $toBool($raw);
+            if ($b !== null) {
+                $query->where($col, $b);
+            }
+        }
+
         $countryFilter = trim((string) $request->query('country', ''));
         if ($countryFilter !== '') {
             // If user typed an ISO code (2 letters), match exactly
