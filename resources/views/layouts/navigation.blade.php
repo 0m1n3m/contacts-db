@@ -18,6 +18,9 @@
                     <x-nav-link :href="route('contacts.index')" :active="request()->routeIs('contacts.*')">
                         {{ __('Contacts') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('tasks.board')" :active="request()->routeIs('tasks.*')">
+                        {{ __('Tasks') }}
+                    </x-nav-link>
                     <x-nav-link :href="route('admin.invitations.index')" :active="request()->routeIs('admin.invitations.*')">
                         {{ __('Invitations') }}
                     </x-nav-link>
@@ -75,6 +78,18 @@
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('contacts.index')" :active="request()->routeIs('contacts.*')">
+                {{ __('Contacts') }}
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('tasks.board')" :active="request()->routeIs('tasks.*')">
+                {{ __('Tasks') }}
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('admin.invitations.index')" :active="request()->routeIs('admin.invitations.*')">
+                {{ __('Invitations') }}
             </x-responsive-nav-link>
         </div>
 

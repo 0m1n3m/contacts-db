@@ -26,21 +26,18 @@ class TaskPolicy
 
     public function comment(User $user, Task $task): bool
     {
-        // Same as view for now
         return $this->view($user, $task);
     }
 
     public function uploadAttachment(User $user, Task $task): bool
     {
-        // Viewer is allowed if assigned (handled by view())
         return $this->view($user, $task);
     }
 
     /**
-     * Rule:
-     * - admin/editor: can change to any status (you can harden transitions in Actions later)
-     * - viewer: only if assigned AND target is in_progress
-     *   (and we will auto-accept in Action if needed)
+     * Coarse authorization:
+     * - admin/editor: allowed (fine-grained transitions enforced in ChangeTaskStatusAction)
+     * - viewer: only if assigned AND target is in_progress or in_review
      */
     public function changeStatus(User $user, Task $task, TaskStatus|string $toStatus): bool
     {
@@ -50,13 +47,13 @@ class TaskPolicy
             return true;
         }
 
-        // viewer
-        $to = $toStatus instanceof TaskStatus ? $toStatus->value : $toStatus;
-
-        if ($to !== TaskStatus::InProgress->value) {
+        // viewer must be assigned
+        if (! $task->assignments()->where('user_id', $user->id)->exists()) {
             return false;
         }
 
-        return $task->assignments()->where('user_id', $user->id)->exists();
+        $to = $toStatus instanceof TaskStatus ? $toStatus->value : (string) $toStatus;
+
+        return in_array($to, [TaskStatus::InProgress->value, TaskStatus::InReview->value], true);
     }
 }

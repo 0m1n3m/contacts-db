@@ -34,17 +34,20 @@ class ChangeTaskStatusAction
         $from = $fromStatus instanceof TaskStatus ? $fromStatus : TaskStatus::from((string) $fromStatus);
 
         return DB::transaction(function () use ($actor, $task, $from, $toStatus, $ipAddress, $userAgent) {
-            // Auto-accept rule:
-            // viewer moving/confirming in_progress => accept assignment if needed
-            // IMPORTANT: this must run even if status doesn't change (no-op),
-            // otherwise accepted_at can remain null when task is already in_progress.
-            if (($actor->role ?? 'viewer') === 'viewer' && $toStatus === TaskStatus::InProgress) {
+            $role = $actor->role ?? 'viewer';
+
+            // 🚫 Viewer cannot reorder (same-status "move")
+            if ($role === 'viewer' && $from === $toStatus) {
+                throw new AuthorizationException('Viewer cannot reorder tasks within the same status.');
+            }
+
+            // Auto-accept rule for viewer moving to in_progress
+            if ($role === 'viewer' && $toStatus === TaskStatus::InProgress) {
                 $assignment = TaskAssignment::where('task_id', $task->id)
                     ->where('user_id', $actor->id)
                     ->lockForUpdate()
                     ->first();
 
-                // Policy should have ensured viewer is assigned, but keep a defensive guard.
                 if (! $assignment) {
                     throw new AuthorizationException('You are not assigned to this task.');
                 }
@@ -82,24 +85,32 @@ class ChangeTaskStatusAction
                 }
             }
 
-            // No-op AFTER auto-accept
+            // Viewer must be assigned to move to in_review too (defensive, like in_progress)
+            if ($role === 'viewer' && $toStatus === TaskStatus::InReview) {
+                $assigned = TaskAssignment::where('task_id', $task->id)
+                    ->where('user_id', $actor->id)
+                    ->exists();
+
+                if (! $assigned) {
+                    throw new AuthorizationException('You are not assigned to this task.');
+                }
+            }
+
+            // No-op AFTER viewer reorder guard + auto-accept
             if ($from === $toStatus) {
                 return $task->refresh();
             }
 
-            // Transition validation (business rule)
             $this->assertTransitionAllowed($actor, $from, $toStatus);
 
             $before = [
                 'status' => $from->value,
             ];
 
-            // Persist status change
             $task->status = $toStatus;
             $task->last_activity_at = now();
             $task->save();
 
-            // System comment: status changed
             TaskComment::create([
                 'task_id' => $task->id,
                 'user_id' => $actor->id,
@@ -112,7 +123,6 @@ class ChangeTaskStatusAction
                 ],
             ]);
 
-            // Audit log: status changed
             AuditLog::create([
                 'actor_id' => $actor->id,
                 'project_id' => $task->project_id,
@@ -135,26 +145,37 @@ class ChangeTaskStatusAction
     {
         $role = $actor->role ?? 'viewer';
 
-        // Viewer: only allowed target is in_progress (policy checks this too).
+        if ($role === 'admin') {
+            return; // any -> any
+        }
+
         if ($role === 'viewer') {
-            if ($to !== TaskStatus::InProgress) {
-                throw new RuntimeException('Viewer can only move tasks to in_progress.');
+            if ($to === TaskStatus::InProgress && in_array($from, [TaskStatus::Created, TaskStatus::Accepted], true)) {
+                return;
+            }
+
+            if ($to === TaskStatus::InReview && $from === TaskStatus::InProgress) {
+                return;
+            }
+
+            throw new RuntimeException('Viewer can only move: created/accepted -> in_progress, and in_progress -> in_review.');
+        }
+
+        if ($role === 'editor') {
+            $allowed = match ($from) {
+                TaskStatus::Created => [TaskStatus::Accepted, TaskStatus::InProgress],
+                TaskStatus::InProgress => [TaskStatus::InReview, TaskStatus::Done],
+                TaskStatus::Done => [TaskStatus::InReview, TaskStatus::InProgress],
+                default => [],
+            };
+
+            if (! in_array($to, $allowed, true)) {
+                throw new RuntimeException("Invalid task status transition: {$from->value} -> {$to->value}");
             }
 
             return;
         }
 
-        // admin/editor transitions
-        $allowed = match ($from) {
-            TaskStatus::Created => [TaskStatus::Accepted, TaskStatus::InProgress],
-            TaskStatus::Accepted => [TaskStatus::InProgress],
-            TaskStatus::InProgress => [TaskStatus::InReview, TaskStatus::Done],
-            TaskStatus::InReview => [TaskStatus::InProgress, TaskStatus::Done],
-            TaskStatus::Done => [TaskStatus::InProgress], // re-open allowed for admin/editor
-        };
-
-        if (! in_array($to, $allowed, true)) {
-            throw new RuntimeException("Invalid task status transition: {$from->value} -> {$to->value}");
-        }
+        throw new RuntimeException('Invalid role for status transition.');
     }
 }

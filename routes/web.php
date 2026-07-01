@@ -6,6 +6,8 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ContactImportController;
 use App\Http\Controllers\Admin\UserInvitationController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
+use App\Http\Controllers\TaskBoardController;
+use App\Http\Controllers\TaskMoveController;
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -90,3 +92,12 @@ Route::post('/invitations/accept', [AcceptInvitationController::class, 'store'])
     ->name('invitations.accept.store');
 
 require __DIR__.'/auth.php';
+
+//Tasks
+Route::get('/tasks/board', [TaskBoardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('tasks.board');
+
+Route::patch('/tasks/{task}/move', TaskMoveController::class)
+    ->middleware(['auth', 'verified'])
+    ->name('tasks.move');

@@ -3,132 +3,127 @@
 namespace App\Actions\Tasks;
 
 use App\Enums\TaskStatus;
-use App\Models\AuditLog;
 use App\Models\Task;
-use App\Models\TaskComment;
 use App\Models\User;
-use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class MoveTaskAction
 {
-    /**
-     * Move a task to a status column and reorder the whole destination column.
-     *
-     * @param array<int> $orderedTaskIds Full ordered list of task IDs for the destination column.
-     */
+    public function __construct(
+        private ChangeTaskStatusAction $changeStatus,
+    ) {}
+
     public function execute(
         User $actor,
         Task $task,
         TaskStatus $toStatus,
-        array $orderedTaskIds,
+        array $fromOrderedTaskIds,
+        array $toOrderedTaskIds,
         ?string $ipAddress = null,
         ?string $userAgent = null,
     ): void {
-        $orderedTaskIds = array_values(array_unique(array_map('intval', $orderedTaskIds)));
+        $fromStatus = $task->status instanceof TaskStatus
+            ? $task->status
+            : TaskStatus::from((string) $task->status);
 
-        if (count($orderedTaskIds) === 0) {
-            throw new RuntimeException('orderedTaskIds cannot be empty.');
+        // must include moved id in destination order (both reorder and cross-column)
+        if (! in_array($task->id, $toOrderedTaskIds, true)) {
+            throw new RuntimeException('to_ordered_task_ids must include the moved task id.');
         }
 
-        if (! in_array((int) $task->id, $orderedTaskIds, true)) {
-            throw new RuntimeException('orderedTaskIds must include the moved task id.');
+        $isSameColumn = ($fromStatus === $toStatus);
+
+        // Only enforce the "from must not include moved id" rule for cross-column moves
+        if (! $isSameColumn && ! empty($fromOrderedTaskIds) && in_array($task->id, $fromOrderedTaskIds, true)) {
+            throw new RuntimeException('from_ordered_task_ids must NOT include the moved task id.');
         }
 
-        // Basic authorization: if user can change status, they can move/reorder in that column
-        if (! $actor->can('changeStatus', [$task, $toStatus])) {
-            throw new AuthorizationException('Not allowed to move/reorder this task.');
-        }
+        DB::transaction(function () use (
+            $actor,
+            $task,
+            $fromStatus,
+            $toStatus,
+            $fromOrderedTaskIds,
+            $toOrderedTaskIds,
+            $ipAddress,
+            $userAgent,
+            $isSameColumn,
+        ) {
+            // For same-column reorder, status change is a no-op, but keep it safe:
+            // - admin/editor allowed anyway
+            // - viewer policy might deny "changeStatus" to same status; ChangeTaskStatusAction handles no-op after policy.
+            $this->changeStatus->execute(
+                actor: $actor,
+                task: $task,
+                toStatus: $toStatus,
+                ipAddress: $ipAddress,
+                userAgent: $userAgent,
+            );
 
-        DB::transaction(function () use ($actor, $task, $toStatus, $orderedTaskIds, $ipAddress, $userAgent) {
-            $task->refresh();
+            // Reorder destination column
+            $this->reorderColumnTolerant(
+                projectId: $task->project_id,
+                status: $toStatus,
+                orderedTaskIds: $toOrderedTaskIds,
+            );
 
-            $fromStatus = $task->status instanceof TaskStatus ? $task->status : TaskStatus::from((string) $task->status);
-            $from = [
-                'status' => $fromStatus->value,
-                'sort_order' => $task->sort_order,
-            ];
-
-            // 1) Change status if needed (and run its side-effects)
-            if ($fromStatus !== $toStatus) {
-                (new ChangeTaskStatusAction())->execute($actor, $task, $toStatus, $ipAddress, $userAgent);
-                $task->refresh();
+            // Reorder source column only for cross-column moves and only when provided
+            if (! $isSameColumn && ! empty($fromOrderedTaskIds)) {
+                $this->reorderColumnTolerant(
+                    projectId: $task->project_id,
+                    status: $fromStatus,
+                    orderedTaskIds: $fromOrderedTaskIds,
+                );
             }
-
-            // 2) Load all tasks in the destination column that match orderedTaskIds
-            /** @var Collection<int, Task> $tasks */
-            $tasks = Task::query()
-                ->whereIn('id', $orderedTaskIds)
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-
-            if ($tasks->count() !== count($orderedTaskIds)) {
-                $missing = array_values(array_diff($orderedTaskIds, $tasks->keys()->map(fn ($v) => (int) $v)->all()));
-                throw new RuntimeException('Some task IDs do not exist: ' . implode(',', $missing));
-            }
-
-            // 3) Validate all tasks are in the destination column (project_id + status)
-            $projectId = $task->project_id; // no cross-project move for now
-            foreach ($orderedTaskIds as $id) {
-                $t = $tasks[(int) $id];
-
-                if ((int) $t->project_id !== (int) $projectId) {
-                    throw new RuntimeException("Task {$id} is not in the destination project.");
-                }
-
-                $st = $t->status instanceof TaskStatus ? $t->status : TaskStatus::from((string) $t->status);
-                if ($st !== $toStatus) {
-                    throw new RuntimeException("Task {$id} is not in destination status column.");
-                }
-            }
-
-            // 4) Reassign sort_order as 10,20,30...
-            $i = 1;
-            foreach ($orderedTaskIds as $id) {
-                $newSort = $i * 10;
-                $i++;
-
-                $t = $tasks[(int) $id];
-                if ((int) $t->sort_order !== $newSort) {
-                    $t->sort_order = $newSort;
-                    $t->save();
-                }
-            }
-
-            // Update last_activity_at on moved task (optional but useful)
-            $task->forceFill(['last_activity_at' => now()])->save();
-
-            // 5) System comment + AuditLog (only one entry)
-            TaskComment::create([
-                'task_id' => $task->id,
-                'user_id' => $actor->id,
-                'type' => TaskComment::TYPE_SYSTEM,
-                'body' => 'Task moved/reordered.',
-                'meta' => [
-                    'event' => 'task_moved',
-                    'to_status' => $toStatus->value,
-                    'ordered_task_ids' => $orderedTaskIds,
-                ],
-            ]);
-
-            AuditLog::create([
-                'actor_id' => $actor->id,
-                'project_id' => $task->project_id,
-                'entity_type' => Task::class,
-                'entity_id' => $task->id,
-                'action' => 'task.moved',
-                'before' => $from,
-                'after' => [
-                    'status' => $toStatus->value,
-                    'ordered_task_ids' => $orderedTaskIds,
-                ],
-                'ip_address' => $ipAddress,
-                'user_agent' => $userAgent ? Str::limit($userAgent, 255, '') : null,
-            ]);
         });
+    }
+
+    /**
+     * Tolerant reorder:
+     * - Validate ids belong to the same board scope (project_id matches / is null)
+     * - Reorder only ids that are actually in the requested status at ordering time
+     */
+    private function reorderColumnTolerant(?int $projectId, TaskStatus $status, array $orderedTaskIds): void
+    {
+        if (count($orderedTaskIds) === 0) {
+            return;
+        }
+
+        $scopeQuery = Task::query()->whereIn('id', $orderedTaskIds);
+        if (is_null($projectId)) {
+            $scopeQuery->whereNull('project_id');
+        } else {
+            $scopeQuery->where('project_id', $projectId);
+        }
+
+        if ($scopeQuery->count() !== count($orderedTaskIds)) {
+            throw new RuntimeException('ordered_task_ids contains tasks outside the current board scope.');
+        }
+
+        $columnQuery = Task::query()
+            ->where('status', $status->value)
+            ->whereIn('id', $orderedTaskIds);
+
+        if (is_null($projectId)) {
+            $columnQuery->whereNull('project_id');
+        } else {
+            $columnQuery->where('project_id', $projectId);
+        }
+
+        $validIds = $columnQuery->pluck('id')->all();
+
+        $pos = 1;
+        foreach (array_values($orderedTaskIds) as $id) {
+            if (! in_array($id, $validIds, true)) {
+                continue;
+            }
+
+            Task::query()->where('id', $id)->update([
+                'sort_order' => $pos * 10,
+            ]);
+
+            $pos++;
+        }
     }
 }
