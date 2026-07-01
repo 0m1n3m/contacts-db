@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 class AssignUsersToTaskAction
 {
     /**
-     * Assign multiple users to a task (idempotent).
+     * Synchronize users assigned to a task (replaces previous assignments).
      *
      * @param  array<int>  $userIds
      */
@@ -31,20 +31,29 @@ class AssignUsersToTaskAction
         }
 
         $userIds = array_values(array_unique(array_map('intval', $userIds)));
-        if (count($userIds) === 0) {
-            return;
-        }
 
         DB::transaction(function () use ($actor, $task, $userIds, $ipAddress, $userAgent) {
             $existing = TaskAssignment::where('task_id', $task->id)
                 ->pluck('user_id')
                 ->all();
 
-            $toAdd = array_values(array_diff($userIds, $existing));
-            if (count($toAdd) === 0) {
+            // Si no hay cambios, retorna
+            if (array_values(array_unique($existing)) === $userIds) {
                 return;
             }
 
+            // Calcular qué agregar y qué eliminar
+            $toAdd = array_diff($userIds, $existing);
+            $toRemove = array_diff($existing, $userIds);
+
+            // Eliminar asignaciones no seleccionadas
+            if (count($toRemove) > 0) {
+                TaskAssignment::where('task_id', $task->id)
+                    ->whereIn('user_id', $toRemove)
+                    ->delete();
+            }
+
+            // Agregar nuevas asignaciones
             foreach ($toAdd as $uid) {
                 TaskAssignment::create([
                     'task_id' => $task->id,
@@ -56,14 +65,25 @@ class AssignUsersToTaskAction
 
             $task->forceFill(['last_activity_at' => now()])->save();
 
+            // Mensaje de comentario basado en qué cambió
+            $message = 'Task assignments updated.';
+            if (count($toAdd) > 0 && count($toRemove) > 0) {
+                $message = 'Users assigned and unassigned.';
+            } elseif (count($toAdd) > 0) {
+                $message = 'Users assigned.';
+            } elseif (count($toRemove) > 0) {
+                $message = 'Users unassigned.';
+            }
+
             TaskComment::create([
                 'task_id' => $task->id,
                 'user_id' => $actor->id,
                 'type' => TaskComment::TYPE_SYSTEM,
-                'body' => 'Users assigned.',
+                'body' => $message,
                 'meta' => [
-                    'event' => 'users_assigned',
-                    'user_ids' => $toAdd,
+                    'event' => 'task_assignments_updated',
+                    'added_user_ids' => array_values($toAdd),
+                    'removed_user_ids' => array_values($toRemove),
                 ],
             ]);
 
@@ -72,9 +92,9 @@ class AssignUsersToTaskAction
                 'project_id' => $task->project_id,
                 'entity_type' => Task::class,
                 'entity_id' => $task->id,
-                'action' => 'task.users_assigned',
+                'action' => 'task.assignments_updated',
                 'before' => ['assigned_user_ids' => $existing],
-                'after' => ['assigned_user_ids' => array_values(array_unique(array_merge($existing, $toAdd)))],
+                'after' => ['assigned_user_ids' => $userIds],
                 'ip_address' => $ipAddress,
                 'user_agent' => $userAgent ? Str::limit($userAgent, 255, '') : null,
             ]);

@@ -16,7 +16,7 @@ class TaskComment extends Model
         'meta',
     ];
 
-    public const TYPE_USER = 'user';
+    public const TYPE_USER = 'message';
     public const TYPE_SYSTEM = 'system';
 
     protected $casts = [

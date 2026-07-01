@@ -8,6 +8,10 @@ use App\Http\Controllers\Admin\UserInvitationController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
 use App\Http\Controllers\TaskBoardController;
 use App\Http\Controllers\TaskMoveController;
+use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TaskAssignmentController;
+use App\Http\Controllers\TaskCommentController;
+use App\Http\Controllers\TaskAttachmentController;
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -94,10 +98,64 @@ Route::post('/invitations/accept', [AcceptInvitationController::class, 'store'])
 require __DIR__.'/auth.php';
 
 //Tasks
-Route::get('/tasks/board', [TaskBoardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/tasks/board', [TaskBoardController::class, 'index'])
     ->name('tasks.board');
 
-Route::patch('/tasks/{task}/move', TaskMoveController::class)
-    ->middleware(['auth', 'verified'])
+    Route::get('/tasks', [TaskController::class, 'index'])
+        ->name('tasks.index');
+
+    Route::get('/tasks/create', [TaskController::class, 'create'])
+        ->middleware('role:admin,editor')
+        ->name('tasks.create');
+
+    Route::post('/tasks', [TaskController::class, 'store'])
+        ->middleware('role:admin,editor')
+        ->name('tasks.store');
+
+    Route::post('/tasks/assignments/{assignment}/accept', [TaskAssignmentController::class, 'accept'])
+    ->name('tasks.assignments.accept');
+
+    Route::post('/tasks/assignments/{assignment}/reject', [TaskAssignmentController::class, 'reject'])
+        ->name('tasks.assignments.reject');
+
+    Route::delete('/tasks/assignments/{assignment}', [TaskAssignmentController::class, 'destroy'])
+        ->name('tasks.assignments.destroy');
+
+    Route::get('/tasks/{task}', [TaskController::class, 'show'])
+        ->name('tasks.show');
+
+    Route::get('/tasks/{task}/edit', [TaskController::class, 'edit'])
+        ->middleware('role:admin,editor')
+        ->name('tasks.edit');
+
+    Route::patch('/tasks/{task}', [TaskController::class, 'update'])
+        ->middleware('role:admin,editor')
+        ->name('tasks.update');
+
+    Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])
+        ->middleware('role:admin,editor')
+        ->name('tasks.destroy');
+
+    Route::patch('/tasks/{task}/move', TaskMoveController::class)
     ->name('tasks.move');
+
+    // Task Comments
+    Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])
+        ->name('tasks.comments.store');
+
+    Route::delete('/tasks/{task}/comments/{comment}', [TaskCommentController::class, 'destroy'])
+        ->name('tasks.comments.destroy');
+
+    // Task Attachments
+    Route::post('/tasks/{task}/attachments', [TaskAttachmentController::class, 'store'])
+        ->name('tasks.attachments.store');
+
+    Route::get('/tasks/{task}/attachments/{attachment}/download', [TaskAttachmentController::class, 'download'])
+        ->name('tasks.attachments.download');
+
+    Route::delete('/tasks/{task}/attachments/{attachment}', [TaskAttachmentController::class, 'destroy'])
+        ->name('tasks.attachments.destroy');
+});
+
