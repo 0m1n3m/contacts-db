@@ -5,10 +5,10 @@ namespace App\Actions\Tasks;
 use App\Models\Task;
 use App\Models\TaskAttachment;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class UploadTaskAttachmentAction
 {
@@ -21,13 +21,11 @@ class UploadTaskAttachmentAction
         UploadedFile $file,
         ?string $label = null,
     ): TaskAttachment {
-        // Verificar permisos
         if (!$actor->can('uploadAttachment', $task)) {
             throw new AuthorizationException('You cannot upload attachments to this task.');
         }
 
         return DB::transaction(function () use ($actor, $task, $file, $label) {
-            // Crear o obtener attachment
             $attachment = TaskAttachment::firstOrCreate(
                 [
                     'task_id' => $task->id,
@@ -38,18 +36,15 @@ class UploadTaskAttachmentAction
                 ]
             );
 
-            // Obtener versión siguiente
             $nextVersion = $attachment->versions()->max('version') + 1;
 
-            // Guardar archivo
             $path = $file->store("task-attachments/{$task->id}", 'public');
             $checksum = hash_file('sha256', $file->getRealPath());
 
-            // Crear versión
             $attachment->versions()->create([
                 'version' => $nextVersion,
                 'uploaded_by' => $actor->id,
-                'disk' => 'local',
+                'disk' => 'public',
                 'path' => $path,
                 'original_name' => $file->getClientOriginalName(),
                 'mime' => $file->getMimeType(),
@@ -57,8 +52,19 @@ class UploadTaskAttachmentAction
                 'checksum' => $checksum,
             ]);
 
-            // Actualizar last_activity_at
             $task->forceFill(['last_activity_at' => now()])->save();
+
+            // 🔔 Notificar a usuarios asignados
+            foreach ($task->assignments as $assignment) {
+                if ($assignment->user_id !== $actor->id) {
+                    NotificationService::notifyFileUpload(
+                        recipientUser: $assignment->user,
+                        triggeredBy: $actor,
+                        task: $task,
+                        fileName: $file->getClientOriginalName(),
+                    );
+                }
+            }
 
             return $attachment->refresh();
         });
