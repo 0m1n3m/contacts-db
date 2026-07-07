@@ -38,26 +38,25 @@
                             <h3 class="text-lg font-semibold mb-4">Details</h3>
 
                             <div class="space-y-4">
-                                <div>
-                                    <span class="text-sm text-gray-500">Status</span>
-                                    <p class="font-medium mt-1">
-                                        <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full
-                                            @if ($task->status?->value === 'done')
-                                                bg-green-100 text-green-800
-                                            @elseif ($task->status?->value === 'in_review')
-                                                bg-yellow-100 text-yellow-800
-                                            @elseif ($task->status?->value === 'in_progress')
-                                                bg-blue-100 text-blue-800
-                                            @else
-                                                bg-gray-100 text-gray-800
-                                            @endif
-                                        ">
-                                            {{ $task->status?->value ?? 'unknown' }}
-                                        </span>
-                                    </p>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-4">
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <span class="text-sm text-gray-500">Status</span>
+                                        <p class="font-medium mt-1">
+                                            <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full
+                                                @if ($task->status?->value === 'done')
+                                                    bg-green-100 text-green-800
+                                                @elseif ($task->status?->value === 'in_review')
+                                                    bg-yellow-100 text-yellow-800
+                                                @elseif ($task->status?->value === 'in_progress')
+                                                    bg-blue-100 text-blue-800
+                                                @else
+                                                    bg-gray-100 text-gray-800
+                                                @endif
+                                            ">
+                                                {{ $task->status?->value ?? 'unknown' }}
+                                            </span>
+                                        </p>
+                                    </div>
                                     <div>
                                         <span class="text-sm text-gray-500">Priority</span>
                                         <p class="font-medium mt-1">{{ $task->priority?->value ?? '—' }}</p>
@@ -89,84 +88,186 @@
                                     </p>
                                 </div>
 
-                                <div>
-                                    <span class="text-sm text-gray-500">Created By</span>
-                                    <p class="font-medium mt-1">{{ $task->creator->name ?? '—' }}</p>
-                                </div>
+                                @if ($task->description)
+                                    <div class="border-b">
+                                        <h3 class="text-lg font-semibold mb-2">Description</h3>
+                                        <p class="text-gray-700 whitespace-pre-line">{{ $task->description }}</p>
+                                    </div>
+                                @endif
 
-                                <div>
-                                    <span class="text-sm text-gray-500">Last Activity</span>
-                                    <p class="font-medium mt-1">{{ $task->last_activity_at?->diffForHumans() ?? '—' }}</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span class="text-sm text-gray-500">Created By</span>
+                                        <p class="font-medium mt-1">{{ $task->creator->name ?? '—' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm text-gray-500">Last Activity</span>
+                                        <p class="font-medium mt-1">{{ $task->last_activity_at?->diffForHumans() ?? '—' }}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        @if ($task->description)
-                            <div class="p-6 border-b">
-                                <h3 class="text-lg font-semibold mb-2">Description</h3>
-                                <p class="text-gray-700 whitespace-pre-line">{{ $task->description }}</p>
-                            </div>
-                        @endif
+                    <!-- Comments Section -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 border-b">
+                            <h3 class="text-lg font-semibold">Comments</h3>
+                        </div>
+                        <div class="p-6">
+                            <!-- Comment Form -->
+                            <form method="POST" action="{{ route('tasks.comments.store', $task) }}" class="mb-6" id="commentForm">
+                                @csrf
 
-                        <!-- Assignments Section -->
-                        @if ($task->assignments->count() > 0)
-                        <div class="mt-6 bg-white rounded-lg shadow p-6">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Assignments</h3>
+                                <div class="mb-4">
+                                    <label for="body" class="block text-sm font-medium text-gray-700 mb-2">
+                                        Add a comment
+                                    </label>
+                                    <textarea
+                                        id="body"
+                                        name="body"
+                                        rows="4"
+                                        placeholder="Write a comment..."
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    >{{ old('body') }}</textarea>
+                                    @error('body')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                    <p class="mt-2 text-xs text-gray-500">💡 Tip: Use @username to mention someone</p>
+                                    <p class="mt-2 text-xs text-gray-500">💡 Tip: Press Enter to send</p>
+                                    <p class="mt-2 text-xs text-gray-500">💡 Tip: Press Shift+Enter for new line</p>
+                                </div>
 
-                            <div class="space-y-3">
-                                @foreach ($task->assignments as $assignment)
-                                    <div class="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                                        <div>
-                                            <p class="text-sm font-medium text-gray-900">{{ $assignment->user->name }}</p>
-                                            <p class="text-xs text-gray-500">{{ $assignment->user->email }}</p>
-                                            @if ($assignment->accepted_at)
-                                                <p class="text-xs text-green-600 mt-1">✓ Accepted on {{ $assignment->accepted_at->format('M d, Y') }}</p>
-                                            @else
-                                                <p class="text-xs text-amber-600 mt-1">⏳ Pending acceptance</p>
-                                            @endif
+                                <button type="submit" id="submitBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                                    Post Comment
+                                </button>
+                            </form>
+
+                            <script>
+                                document.getElementById('body').addEventListener('keydown', function(e) {
+                                    // Enter sin modificadores = enviar
+                                    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                                        e.preventDefault();
+                                        document.getElementById('commentForm').submit();
+                                    }
+                                    // Shift+Enter o Ctrl+Enter = nueva línea
+                                    else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) {
+                                        // Permitir el comportamiento por defecto (salto de línea)
+                                    }
+                                });
+                            </script>
+
+                            <!-- Comments List -->
+                            <div class="space-y-4 border-t pt-4">
+                                @forelse ($task->comments()->where('type', \App\Models\TaskComment::TYPE_USER)->orderByDesc('created_at')->get() as $comment)
+                                    <div class="border rounded-lg p-4 bg-gray-50">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p class="font-semibold text-gray-900">{{ $comment->user->name }}</p>
+                                                <p class="text-xs text-gray-500">{{ $comment->user->email }}</p>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                @if (auth()->id() === $comment->user_id || auth()->user()->role === 'admin')
+                                                    <form method="POST" action="{{ route('tasks.comments.destroy', [$task, $comment]) }}" class="inline" onsubmit="return confirm('Delete this comment?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="text-xs text-red-600 hover:text-red-800">
+                                                            Delete
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                                <span class="text-xs text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
+                                            </div>
                                         </div>
 
-                                        <!-- Actions for current user -->
-                                        @if (auth()->id() === $assignment->user_id)
-                                            <!-- User can accept/reject their own assignment -->
-                                            @if (!$assignment->accepted_at)
-                                                <div class="flex gap-2">
-                                                    <form method="POST" action="{{ route('tasks.assignments.accept', $assignment) }}" class="inline">
-                                                        @csrf
-                                                        <button type="submit" class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
-                                                            Accept
-                                                        </button>
-                                                    </form>
-                                                    <form method="POST" action="{{ route('tasks.assignments.reject', $assignment) }}" class="inline">
-                                                        @csrf
-                                                        <button type="submit" class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
-                                                            Reject
-                                                        </button>
-                                                    </form>
+                                        <!-- Comment body with mention highlighting -->
+                                        <div class="text-gray-700 mt-3 break-words text-left">
+                                            {!! \App\Helpers\TextHelper::highlightMentions($comment->body) !!}
+                                        </div>
+
+                                        <!-- Mentions -->
+                                        @if ($comment->mentions()->count() > 0)
+                                            <div class="mt-3 pt-3 border-t border-gray-200">
+                                                <p class="text-xs text-gray-500 mb-1">Mentioned:</p>
+                                                <div class="flex flex-wrap gap-1">
+                                                    @foreach ($comment->mentions as $mention)
+                                                        <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">
+                                                            {{ $mention->mentionedUser->name }}
+                                                        </span>
+                                                    @endforeach
                                                 </div>
-                                            @else
-                                                <span class="text-xs text-green-600 font-semibold">Accepted</span>
-                                            @endif
-                                        @elseif (auth()->user()->role === 'admin' || (auth()->user()->role === 'editor' && $task->created_by === auth()->id()))
-                                            <!-- Admin or creator can unassign or reject -->
-                                            <form method="POST" action="{{ route('tasks.assignments.destroy', $assignment) }}" class="inline" onsubmit="return confirm('Remove this assignment?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500">
-                                                    Remove
-                                                </button>
-                                            </form>
+                                            </div>
                                         @endif
                                     </div>
-                                @endforeach
+                                @empty
+                                    <p class="text-gray-500 text-sm">No comments yet. Be the first to comment!</p>
+                                @endforelse
                             </div>
                         </div>
-                        @else
-                        <div class="mt-6 bg-white rounded-lg shadow p-6">
-                            <p class="text-gray-500 text-sm">No users assigned to this task.</p>
-                        </div>
-                        @endif
                     </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="space-y-6">
+
+                    <!-- Assignments -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 border-b">
+                            <h3 class="text-lg font-semibold">Assignments</h3>
+                        </div>
+                        <div class="p-6">
+                            @if ($task->assignments->count() > 0)
+                                <div class="space-y-3">
+                                    @foreach ($task->assignments as $assignment)
+                                        <div class="flex flex-col gap-3 p-3 border rounded-lg bg-gray-50">
+                                            <div>
+                                                <p class="font-semibold text-gray-900 text-sm">{{ $assignment->user->name }}</p>
+                                                @if ($assignment->accepted_at)
+                                                    <p class="text-xs text-green-600 mt-1">✓ Accepted on {{ $assignment->accepted_at->format('M d, Y') }}</p>
+                                                @else
+                                                    <p class="text-xs text-amber-600 mt-1">⏳ Pending acceptance</p>
+                                                @endif
+                                            </div>
+
+                                            <!-- Actions for current user -->
+                                            @if (auth()->id() === $assignment->user_id)
+                                                <!-- User can accept/reject their own assignment -->
+                                                @if (!$assignment->accepted_at)
+                                                    <div class="flex gap-2">
+                                                        <form method="POST" action="{{ route('tasks.assignments.accept', $assignment) }}" class="inline flex-1">
+                                                            @csrf
+                                                            <button type="submit" class="w-full px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition">
+                                                                Accept
+                                                            </button>
+                                                        </form>
+                                                        <form method="POST" action="{{ route('tasks.assignments.reject', $assignment) }}" class="inline flex-1">
+                                                            @csrf
+                                                            <button type="submit" class="w-full px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition">
+                                                                Reject
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                @endif
+                                            @elseif (auth()->user()->role === 'admin' || (auth()->user()->role === 'editor' && $task->created_by === auth()->id()))
+                                                <!-- Admin or creator can unassign -->
+                                                <form method="POST" action="{{ route('tasks.assignments.destroy', $assignment) }}" class="inline w-full" onsubmit="return confirm('Remove this assignment?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="w-full px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500 transition">
+                                                        Remove
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="text-gray-500 text-sm">No assignments yet.</p>
+                            @endif
+                        </div>
+                    </div>
+
+
 
                     <!-- Attachments Section -->
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
@@ -222,7 +323,7 @@
                             @if ($task->attachments()->count() > 0)
                                 <div class="space-y-3">
                                     @foreach ($task->attachments as $attachment)
-                                        <div class="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                        <div class="flex flex-col gap-y-4 justify-between p-3 border rounded-lg bg-gray-50">
                                             <div class="flex-1">
                                                 <p class="font-semibold text-gray-900">{{ $attachment->label }}</p>
                                                 @if ($attachment->latestVersion)
@@ -265,123 +366,15 @@
                         </div>
                     </div>
 
-                    <!-- Comments Section -->
-                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                        <div class="p-6 border-b">
-                            <h3 class="text-lg font-semibold">Comments</h3>
-                        </div>
-                        <div class="p-6">
-                            <!-- Comment Form -->
-                            <form method="POST" action="{{ route('tasks.comments.store', $task) }}" class="mb-6">
-                                @csrf
-
-                                <div class="mb-4">
-                                    <label for="body" class="block text-sm font-medium text-gray-700 mb-2">
-                                        Add a comment
-                                    </label>
-                                    <textarea
-                                        id="body"
-                                        name="body"
-                                        rows="4"
-                                        placeholder="Write a comment... Use @username to mention someone"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    >{{ old('body') }}</textarea>
-                                    @error('body')
-                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                    @enderror
-                                    <p class="mt-2 text-xs text-gray-500">💡 Tip: Use @username to mention someone</p>
-                                </div>
-
-                                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                                    Post Comment
-                                </button>
-                            </form>
-
-                            <!-- Comments List -->
-                            <div class="space-y-4 border-t pt-4">
-                                @forelse ($task->comments()->where('type', \App\Models\TaskComment::TYPE_USER)->orderByDesc('created_at')->get() as $comment)
-                                    <div class="border rounded-lg p-4 bg-gray-50">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <div>
-                                                <p class="font-semibold text-gray-900">{{ $comment->user->name }}</p>
-                                                <p class="text-xs text-gray-500">{{ $comment->user->email }}</p>
-                                            </div>
-                                            <div class="flex gap-2">
-                                                @if (auth()->id() === $comment->user_id || auth()->user()->role === 'admin')
-                                                    <form method="POST" action="{{ route('tasks.comments.destroy', [$task, $comment]) }}" class="inline" onsubmit="return confirm('Delete this comment?');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="text-xs text-red-600 hover:text-red-800">
-                                                            Delete
-                                                        </button>
-                                                    </form>
-                                                @endif
-                                                <span class="text-xs text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
-                                            </div>
-                                        </div>
-
-                                        <!-- Comment body with mention highlighting -->
-                                        <div class="text-gray-700 mt-3 whitespace-pre-wrap break-words">
-                                            {!! \App\Helpers\TextHelper::highlightMentions($comment->body) !!}
-                                        </div>
-
-                                        <!-- Mentions -->
-                                        @if ($comment->mentions()->count() > 0)
-                                            <div class="mt-3 pt-3 border-t border-gray-200">
-                                                <p class="text-xs text-gray-500 mb-1">Mentioned:</p>
-                                                <div class="flex flex-wrap gap-1">
-                                                    @foreach ($comment->mentions as $mention)
-                                                        <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">
-                                                            {{ $mention->mentionedUser->name }}
-                                                        </span>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                        @endif
-                                    </div>
-                                @empty
-                                    <p class="text-gray-500 text-sm">No comments yet. Be the first to comment!</p>
-                                @endforelse
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Sidebar -->
-                <div class="space-y-6">
-                    <!-- Assignments -->
-                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                        <div class="p-6 border-b">
-                            <h3 class="text-lg font-semibold">Assignments</h3>
-                        </div>
-                        <div class="p-6">
-                            @if ($task->assignments->count() > 0)
-                                <ul class="space-y-2">
-                                    @foreach ($task->assignments as $assignment)
-                                        <li class="flex items-center justify-between text-sm">
-                                            <span>{{ $assignment->user->name }}</span>
-                                            @if ($assignment->accepted_at)
-                                                <span class="text-xs text-green-600">✓ Accepted</span>
-                                            @else
-                                                <span class="text-xs text-gray-500">Pending</span>
-                                            @endif
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @else
-                                <p class="text-gray-500 text-sm">No assignments yet.</p>
-                            @endif
-                        </div>
-                    </div>
-
                     <!-- Info -->
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                        <div class="p-6">
-                            <div class="text-xs text-gray-500 space-y-1">
-                                <p>#{{ $task->id }}</p>
-                                <p>Created: {{ $task->created_at->format('Y-m-d H:i') }}</p>
-                                <p>Updated: {{ $task->updated_at->format('Y-m-d H:i') }}</p>
-                            </div>
+                        <div class="p-6 border-b">
+                            <h3 class="text-lg font-semibold">Dates</h3>
+                        </div>
+                        <div class="p-6 text-xs text-gray-500 space-y-1">
+                            <p>Created: {{ $task->created_at->format('Y-m-d H:i') }}</p>
+                            <p>Updated: {{ $task->updated_at->format('Y-m-d H:i') }}</p>
+                            <p>Due date: {{ $task->due_at->format('Y-m-d H:i') }}</p>
                         </div>
                     </div>
                 </div>

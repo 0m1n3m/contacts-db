@@ -99,7 +99,6 @@ Route::post('/invitations/accept', [AcceptInvitationController::class, 'store'])
 require __DIR__.'/auth.php';
 
 //Tasks
-
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/tasks/board', [TaskBoardController::class, 'index'])
     ->name('tasks.board');

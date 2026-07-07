@@ -41,26 +41,11 @@ class CommentTaskAction
 
             // Procesar menciones (@username)
             $mentions = $this->extractMentions($body);
-            \Log::info('Processing mentions', ['mentions' => $mentions]);
 
             foreach ($mentions as $username) {
-                \Log::info('Looking for user', ['username' => $username]);
-                
                 $mentionedUser = User::whereRaw('LOWER(name) = ?', [strtolower($username)])->first();
-                
-                \Log::info('User lookup result', [
-                    'username' => $username,
-                    'found' => $mentionedUser ? true : false,
-                    'user_id' => $mentionedUser?->id,
-                    'actor_id' => $actor->id,
-                ]);
-                
-                if ($mentionedUser && $mentionedUser->id !== $actor->id) {
-                    \Log::info('Creating mention notification', [
-                        'mentioned_user_id' => $mentionedUser->id,
-                        'actor_id' => $actor->id,
-                    ]);
-                    
+
+                if ($mentionedUser) {  // Cambio aquí: sin la condición de actor
                     TaskCommentMention::create([
                         'task_comment_id' => $comment->id,
                         'task_id' => $task->id,
@@ -86,10 +71,6 @@ class CommentTaskAction
     private function extractMentions(string $body): array
     {
         preg_match_all('/@([\w]+)/u', $body, $matches);
-        \Log::info('Mentions extracted', [
-            'body' => $body,
-            'matches' => $matches[1] ?? [],
-        ]);
         return $matches[1] ?? [];
     }
 }

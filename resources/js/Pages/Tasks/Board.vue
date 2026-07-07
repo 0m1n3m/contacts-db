@@ -11,7 +11,20 @@ const user = props.auth?.user ?? null
 const role = user?.role ?? 'viewer'
 const myId = user?.id ?? null
 
-const localColumns = reactive(JSON.parse(JSON.stringify(props.columns)))
+const localColumns = reactive({})
+const parsed = JSON.parse(JSON.stringify(props.columns))
+
+Object.keys(parsed).forEach(status => {
+  if (role === 'viewer') {
+    localColumns[status] = parsed[status].filter(task => task.assigned_to_me)
+  } else if (role === 'editor') {
+    localColumns[status] = parsed[status].filter(task => 
+      task.created_by === myId || task.assigned_to_me
+    )
+  } else {
+    localColumns[status] = parsed[status]
+  }
+})
 
 const labels = {
   created: 'Created',
@@ -20,6 +33,8 @@ const labels = {
   in_review: 'In review',
   done: 'Done',
 }
+
+const statusOrder = ['created', 'accepted', 'in_progress', 'in_review', 'done']
 
 function reindex(list) {
   list.forEach((t, idx) => { t.sort_order = (idx + 1) * 10 })
@@ -63,6 +78,96 @@ function canMove(evt) {
 
   if (fromStatus === toStatus) return true
   return allowedTargetsForRole(fromStatus).includes(toStatus)
+}
+
+function getCursorClass(task) {
+  const fromStatus = task.status
+  const allowedTargets = allowedTargetsForRole(fromStatus)
+
+  if (role === 'viewer' && !task.assigned_to_me) return 'cursor-not-allowed'
+  if (role === 'editor' && task.created_by !== myId && !task.assigned_to_me) return 'cursor-not-allowed'
+  if (allowedTargets.length === 0) return 'cursor-not-allowed'
+
+  return 'cursor-grab hover:cursor-grabbing'
+}
+
+function canMoveTask(task) {
+  const allowedTargets = allowedTargetsForRole(task.status)
+  
+  if (role === 'viewer' && !task.assigned_to_me) return false
+  if (role === 'editor' && task.created_by !== myId && !task.assigned_to_me) return false
+  if (allowedTargets.length === 0) return false
+  
+  return true
+}
+
+function canMoveUp(task) {
+  const tasks = localColumns[task.status] ?? []
+  const index = tasks.findIndex(t => t.id === task.id)
+  return index > 0
+}
+
+function canMoveDown(task) {
+  const tasks = localColumns[task.status] ?? []
+  const index = tasks.findIndex(t => t.id === task.id)
+  return index < tasks.length - 1
+}
+
+function canChangeStatus(task, direction) {
+  const allowedTargets = allowedTargetsForRole(task.status)
+  if (direction === 'up') {
+    const currentIndex = statusOrder.indexOf(task.status)
+    return currentIndex > 0 && allowedTargets.includes(statusOrder[currentIndex - 1])
+  } else {
+    const currentIndex = statusOrder.indexOf(task.status)
+    return currentIndex < statusOrder.length - 1 && allowedTargets.includes(statusOrder[currentIndex + 1])
+  }
+}
+
+async function moveTaskWithinStatus(task, direction) {
+  const tasks = localColumns[task.status]
+  const index = tasks.findIndex(t => t.id === task.id)
+  
+  if (direction === 'up' && index > 0) {
+    [tasks[index], tasks[index - 1]] = [tasks[index - 1], tasks[index]]
+  } else if (direction === 'down' && index < tasks.length - 1) {
+    [tasks[index], tasks[index + 1]] = [tasks[index + 1], tasks[index]]
+  }
+  
+  reindex(tasks)
+  await persistMove(task.id, task.status, task.status)
+}
+
+async function changeTaskStatus(task, direction) {
+  const currentIndex = statusOrder.indexOf(task.status)
+  let newStatus
+  
+  if (direction === 'up' && currentIndex > 0) {
+    newStatus = statusOrder[currentIndex - 1]
+  } else if (direction === 'down' && currentIndex < statusOrder.length - 1) {
+    newStatus = statusOrder[currentIndex + 1]
+  }
+  
+  if (newStatus) {
+    const fromStatus = task.status
+    const toStatus = newStatus
+    
+    // Mover tarea de una columna a otra
+    const fromTasks = localColumns[fromStatus]
+    const toTasks = localColumns[toStatus]
+    
+    const index = fromTasks.findIndex(t => t.id === task.id)
+    if (index !== -1) {
+      const [moved] = fromTasks.splice(index, 1)
+      moved.status = toStatus
+      toTasks.push(moved)
+      
+      reindex(fromTasks)
+      reindex(toTasks)
+      
+      await persistMove(task.id, fromStatus, toStatus)
+    }
+  }
 }
 
 async function persistMove(taskId, fromStatus, toStatus) {
@@ -130,15 +235,64 @@ async function onEnd(_status, evt) {
           @end="(evt) => onEnd(status, evt)"
         >
           <template #item="{ element: task }">
-            <article class="rounded border bg-white p-3 shadow-sm" :data-task-id="task.id">
-              <div class="font-medium">{{ task.title }}</div>
-              <div class="text-xs text-gray-500 mt-1">
-                #{{ task.id }} · sort {{ task.sort_order }} · status {{ task.status }}
-                <span v-if="role === 'viewer'" class="ml-2">
+            <div
+              class="rounded border bg-white p-3 shadow-sm"
+              :data-task-id="task.id"
+            >
+              <a
+                :href="`/tasks/${task.id}`"
+                class="block font-medium hover:shadow-md transition mb-2"
+                :class="getCursorClass(task)"
+              >
+                {{ task.title }}
+              </a>
+
+              <div class="text-xs text-gray-500 mb-2">
+                status {{ task.status }}
+                <span class="ml-2">
                   (assigned_to_me: {{ task.assigned_to_me ? 'yes' : 'no' }})
                 </span>
               </div>
-            </article>
+
+              <!-- Botones de control -->
+              <div class="flex flex-wrap gap-1" v-if="canMoveTask(task)">
+                <!-- Mover dentro del status -->
+                <button
+                  v-if="canMoveUp(task)"
+                  @click="moveTaskWithinStatus(task, 'up')"
+                  class="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition"
+                  title="Move up"
+                >
+                  ↑
+                </button>
+                <button
+                  v-if="canMoveDown(task)"
+                  @click="moveTaskWithinStatus(task, 'down')"
+                  class="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition"
+                  title="Move down"
+                >
+                  ↓
+                </button>
+
+                <!-- Cambiar status -->
+                <button
+                  v-if="canChangeStatus(task, 'up')"
+                  @click="changeTaskStatus(task, 'up')"
+                  class="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded hover:bg-blue-300 transition"
+                  title="Move to previous status"
+                >
+                  ←
+                </button>
+                <button
+                  v-if="canChangeStatus(task, 'down')"
+                  @click="changeTaskStatus(task, 'down')"
+                  class="px-2 py-1 bg-green-200 text-green-700 text-xs rounded hover:bg-green-300 transition"
+                  title="Move to next status"
+                >
+                  →
+                </button>
+              </div>
+            </div>
           </template>
         </draggable>
       </section>
