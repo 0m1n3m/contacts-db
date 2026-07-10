@@ -55,11 +55,11 @@
                                     </td>
                                     <td class="px-4 py-3">
                                         <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full
-                                            @if ($task->status?->value === 'done')
+                                            @if ($task->status && $task->status->value === 'done')
                                                 bg-green-100 text-green-800
-                                            @elseif ($task->status?->value === 'in_review')
+                                            @elseif ($task->status && $task->status->value === 'in_review')
                                                 bg-yellow-100 text-yellow-800
-                                            @elseif ($task->status?->value === 'in_progress')
+                                            @elseif ($task->status && $task->status->value === 'in_progress')
                                                 bg-blue-100 text-blue-800
                                             @else
                                                 bg-gray-100 text-gray-800

@@ -126,6 +126,10 @@ class ChangeTaskStatusAction
 
             // 🔔 Notify assigned users
             foreach ($task->assignments as $assignment) {
+                if ($assignment->user_id === $actor->id) {
+                    continue;
+                }
+
                 NotificationService::notifyStatusChange(
                     recipientUser: $assignment->user,
                     triggeredBy: $actor,
@@ -137,13 +141,19 @@ class ChangeTaskStatusAction
 
             // 🔔 Notify creator (if not the one changing status)
             if ($task->created_by !== $actor->id) {
-                NotificationService::notifyStatusChange(
-                    recipientUser: $task->creator,
-                    triggeredBy: $actor,
-                    task: $task,
-                    oldStatus: $from->value,
-                    newStatus: $toStatus->value,
-                );
+                $creatorAlreadyNotified = $task->assignments()
+                    ->where('user_id', $task->created_by)
+                    ->exists();
+
+                if (!$creatorAlreadyNotified) {
+                    NotificationService::notifyStatusChange(
+                        recipientUser: $task->creator,
+                        triggeredBy: $actor,
+                        task: $task,
+                        oldStatus: $from->value,
+                        newStatus: $toStatus->value,
+                    );
+                }
             }
 
             // Create audit log
@@ -172,6 +182,10 @@ class ChangeTaskStatusAction
         }
 
         if ($role === 'viewer') {
+            if ($to === TaskStatus::Accepted && $from === TaskStatus::Created) {
+                return;
+            }
+
             if ($to === TaskStatus::InProgress && in_array($from, [TaskStatus::Created, TaskStatus::Accepted], true)) {
                 return;
             }

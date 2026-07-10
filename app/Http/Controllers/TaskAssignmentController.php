@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Actions\Tasks\ChangeTaskStatusAction;
 use App\Enums\TaskStatus;
 use App\Models\TaskAssignment;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\RedirectResponse;
 
 class TaskAssignmentController extends Controller
@@ -16,16 +16,27 @@ class TaskAssignmentController extends Controller
      */
     public function accept(TaskAssignment $assignment): RedirectResponse
     {
+        Log::info('Accept method called', [
+            'auth_id' => auth()->id(),
+            'assignment_user_id' => $assignment->user_id,
+            'assignment_id' => $assignment->id,
+        ]);
+
         if (auth()->id() !== $assignment->user_id) {
-            throw new AuthorizationException('You can only accept your own assignments.');
+            Log::error('Authorization failed in accept', [
+                'auth_id' => auth()->id(),
+                'assignment_user_id' => $assignment->user_id,
+            ]);
+            abort(403, 'You can only accept your own assignments.');
         }
+
+        Log::info('Authorization passed');
 
         $task = $assignment->task;
 
         DB::transaction(function () use ($assignment, $task) {
             $assignment->update(['accepted_at' => now()]);
 
-            // Si está en 'created', cambiar a 'accepted' usando ChangeTaskStatusAction
             if ($task->status->value === 'created') {
                 (new ChangeTaskStatusAction())->execute(
                     actor: auth()->user(),
@@ -48,7 +59,7 @@ class TaskAssignmentController extends Controller
     {
         // Solo el usuario asignado puede rechazar
         if (auth()->id() !== $assignment->user_id) {
-            throw new AuthorizationException('You can only reject your own assignments.');
+            abort(403, 'You can only accept your own assignments.');
         }
 
         DB::transaction(function () use ($assignment) {
@@ -71,7 +82,7 @@ class TaskAssignmentController extends Controller
 
         // Solo admin o el creador de la tarea pueden desasignar
         if ($actor->role !== 'admin' && $task->created_by !== $actor->id) {
-            throw new AuthorizationException('You cannot unassign users from this task.');
+            abort(403, 'You cannot unassign users from this task.');
         }
 
         DB::transaction(function () use ($assignment) {

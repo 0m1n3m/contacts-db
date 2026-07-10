@@ -158,6 +158,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/tasks/{task}/attachments/{attachment}', [TaskAttachmentController::class, 'destroy'])
         ->name('tasks.attachments.destroy');
 
+    // Task Status Changes
+    Route::patch('/tasks/{task}/change-status', [TaskController::class, 'changeStatus'])
+    ->name('tasks.change-status');
+
     // Notifications - Web Routes
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');

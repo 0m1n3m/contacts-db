@@ -61,7 +61,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Due Date</label>
-                            <input type="date" name="due_at" class="mt-1 block w-full border rounded shadow-sm p-2 border-gray-300" value="{{ old('due_at', $task->due_at?->format('Y-m-d')) }}">
+                            <input type="date" name="due_at" class="mt-1 block w-full border rounded shadow-sm p-2 border-gray-300" value="{{ old('due_at', $task->due_at ? $task->due_at->format('Y-m-d') : '') }}">
                             @error('due_at')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror

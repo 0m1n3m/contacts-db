@@ -374,7 +374,7 @@
                         <div class="p-6 text-xs text-gray-500 space-y-1">
                             <p>Created: {{ $task->created_at->format('Y-m-d H:i') }}</p>
                             <p>Updated: {{ $task->updated_at->format('Y-m-d H:i') }}</p>
-                            <p>Due date: {{ $task->due_at->format('Y-m-d H:i') }}</p>
+                            <p>Due date: {{ $task->due_at ? $task->due_at->format('Y-m-d H:i') : '—' }}</p>
                         </div>
                     </div>
                 </div>

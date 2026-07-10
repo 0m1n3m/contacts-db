@@ -54,6 +54,10 @@ class TaskPolicy
 
         $to = $toStatus instanceof TaskStatus ? $toStatus->value : (string) $toStatus;
 
-        return in_array($to, [TaskStatus::InProgress->value, TaskStatus::InReview->value], true);
+        return in_array($to, [
+            TaskStatus::Accepted->value,
+            TaskStatus::InProgress->value,
+            TaskStatus::InReview->value
+        ], true);
     }
 }

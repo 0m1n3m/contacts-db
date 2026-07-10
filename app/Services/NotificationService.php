@@ -95,4 +95,26 @@ class NotificationService
             'triggered_by' => $triggeredBy->id,
         ]);
     }
+
+    /**
+     * Create a task due soon notification
+     */
+    public static function notifyTaskDueSoon(
+        User $recipientUser,
+        Model $task,
+    ): Notification {
+        $daysLeft = ceil($task->due_at->diffInDays(now()));
+
+        return Notification::create([
+            'user_id' => $recipientUser->id,
+            'type' => 'task_due_soon',
+            'title' => 'Task due soon',
+            'message' => "{$task->title} is due in {$daysLeft} days",
+            'action_url' => route('tasks.show', $task),
+            'action_label' => 'View Task',
+            'notifiable_type' => get_class($task),
+            'notifiable_id' => $task->id,
+            'triggered_by' => null, // Sistema automático
+        ]);
+    }
 }
