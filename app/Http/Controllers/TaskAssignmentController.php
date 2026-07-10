@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Tasks\ChangeTaskStatusAction;
+use App\Enums\TaskStatus;
 use App\Models\TaskAssignment;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -14,17 +16,28 @@ class TaskAssignmentController extends Controller
      */
     public function accept(TaskAssignment $assignment): RedirectResponse
     {
-        // Solo el usuario asignado puede aceptar
         if (auth()->id() !== $assignment->user_id) {
             throw new AuthorizationException('You can only accept your own assignments.');
         }
 
-        DB::transaction(function () use ($assignment) {
+        $task = $assignment->task;
+
+        DB::transaction(function () use ($assignment, $task) {
             $assignment->update(['accepted_at' => now()]);
-            $assignment->task->forceFill(['last_activity_at' => now()])->save();
+
+            // Si está en 'created', cambiar a 'accepted' usando ChangeTaskStatusAction
+            if ($task->status->value === 'created') {
+                (new ChangeTaskStatusAction())->execute(
+                    actor: auth()->user(),
+                    task: $task,
+                    toStatus: TaskStatus::Accepted,
+                    ipAddress: request()->ip(),
+                    userAgent: request()->userAgent(),
+                );
+            }
         });
 
-        return redirect()->route('tasks.show', $assignment->task)
+        return redirect()->route('tasks.show', $task)
             ->with('success', 'Assignment accepted.');
     }
 

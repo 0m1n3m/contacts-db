@@ -8,6 +8,7 @@ use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskComment;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,6 +17,9 @@ use RuntimeException;
 class ChangeTaskStatusAction
 {
     /**
+     * Update task status with role-based validation, auto-accept for viewers,
+     * and notifications to relevant users.
+     *
      * @throws AuthorizationException
      */
     public function execute(
@@ -26,11 +30,11 @@ class ChangeTaskStatusAction
         ?string $userAgent = null,
     ): Task {
         // Policy-level auth
-        if (! $actor->can('changeStatus', [$task, $toStatus])) {
+        if (!$actor->can('changeStatus', [$task, $toStatus])) {
             throw new AuthorizationException('Not allowed to change task status.');
         }
 
-        $fromStatus = $task->status; // casted to TaskStatus
+        $fromStatus = $task->status;
         $from = $fromStatus instanceof TaskStatus ? $fromStatus : TaskStatus::from((string) $fromStatus);
 
         return DB::transaction(function () use ($actor, $task, $from, $toStatus, $ipAddress, $userAgent) {
@@ -48,11 +52,11 @@ class ChangeTaskStatusAction
                     ->lockForUpdate()
                     ->first();
 
-                if (! $assignment) {
+                if (!$assignment) {
                     throw new AuthorizationException('You are not assigned to this task.');
                 }
 
-                if (! $assignment->accepted_at) {
+                if (!$assignment->accepted_at) {
                     $assignment->accepted_at = now();
                     $assignment->save();
 
@@ -73,44 +77,41 @@ class ChangeTaskStatusAction
                         'entity_type' => Task::class,
                         'entity_id' => $task->id,
                         'action' => 'task.assignment_accepted',
-                        'before' => [
-                            'accepted_at' => null,
-                        ],
-                        'after' => [
-                            'accepted_at' => $assignment->accepted_at->toISOString(),
-                        ],
+                        'before' => ['accepted_at' => null],
+                        'after' => ['accepted_at' => $assignment->accepted_at->toISOString()],
                         'ip_address' => $ipAddress,
                         'user_agent' => $userAgent ? Str::limit($userAgent, 255, '') : null,
                     ]);
                 }
             }
 
-            // Viewer must be assigned to move to in_review too (defensive, like in_progress)
+            // Viewer must be assigned to move to in_review
             if ($role === 'viewer' && $toStatus === TaskStatus::InReview) {
                 $assigned = TaskAssignment::where('task_id', $task->id)
                     ->where('user_id', $actor->id)
                     ->exists();
 
-                if (! $assigned) {
+                if (!$assigned) {
                     throw new AuthorizationException('You are not assigned to this task.');
                 }
             }
 
-            // No-op AFTER viewer reorder guard + auto-accept
+            // No-op after viewer reorder guard + auto-accept
             if ($from === $toStatus) {
                 return $task->refresh();
             }
 
+            // Validate transition is allowed for this role
             $this->assertTransitionAllowed($actor, $from, $toStatus);
 
-            $before = [
-                'status' => $from->value,
-            ];
+            $before = ['status' => $from->value];
 
+            // Update task status
             $task->status = $toStatus;
             $task->last_activity_at = now();
             $task->save();
 
+            // Create system comment
             TaskComment::create([
                 'task_id' => $task->id,
                 'user_id' => $actor->id,
@@ -123,6 +124,29 @@ class ChangeTaskStatusAction
                 ],
             ]);
 
+            // 🔔 Notify assigned users
+            foreach ($task->assignments as $assignment) {
+                NotificationService::notifyStatusChange(
+                    recipientUser: $assignment->user,
+                    triggeredBy: $actor,
+                    task: $task,
+                    oldStatus: $from->value,
+                    newStatus: $toStatus->value,
+                );
+            }
+
+            // 🔔 Notify creator (if not the one changing status)
+            if ($task->created_by !== $actor->id) {
+                NotificationService::notifyStatusChange(
+                    recipientUser: $task->creator,
+                    triggeredBy: $actor,
+                    task: $task,
+                    oldStatus: $from->value,
+                    newStatus: $toStatus->value,
+                );
+            }
+
+            // Create audit log
             AuditLog::create([
                 'actor_id' => $actor->id,
                 'project_id' => $task->project_id,
@@ -130,9 +154,7 @@ class ChangeTaskStatusAction
                 'entity_id' => $task->id,
                 'action' => 'task.status_changed',
                 'before' => $before,
-                'after' => [
-                    'status' => $toStatus->value,
-                ],
+                'after' => ['status' => $toStatus->value],
                 'ip_address' => $ipAddress,
                 'user_agent' => $userAgent ? Str::limit($userAgent, 255, '') : null,
             ]);
@@ -169,7 +191,7 @@ class ChangeTaskStatusAction
                 default => [],
             };
 
-            if (! in_array($to, $allowed, true)) {
+            if (!in_array($to, $allowed, true)) {
                 throw new RuntimeException("Invalid task status transition: {$from->value} -> {$to->value}");
             }
 

@@ -7,6 +7,7 @@ use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskComment;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -53,7 +54,7 @@ class AssignUsersToTaskAction
                     ->delete();
             }
 
-            // Agregar nuevas asignaciones
+            // Agregar nuevas asignaciones y notificar
             foreach ($toAdd as $uid) {
                 TaskAssignment::create([
                     'task_id' => $task->id,
@@ -61,6 +62,16 @@ class AssignUsersToTaskAction
                     'assigned_by' => $actor->id,
                     'accepted_at' => null,
                 ]);
+
+                // Notificar al usuario asignado
+                $assignedUser = User::find($uid);
+                if ($assignedUser) {
+                    NotificationService::notifyAssignment(
+                        assignedUser: $assignedUser,
+                        triggeredBy: $actor,
+                        task: $task,
+                    );
+                }
             }
 
             $task->forceFill(['last_activity_at' => now()])->save();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Tasks\CreateTaskAction;
 use App\Actions\Tasks\UpdateTaskAction;
 use App\Actions\Tasks\DeleteTaskAction;
+use App\Actions\Tasks\ChangeTaskStatusAction;
 use App\Enums\TaskStatus;
 use App\Enums\TaskPriority;
 use App\Http\Requests\Tasks\StoreTaskRequest;
@@ -14,7 +15,9 @@ use App\Models\Project;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class TaskController extends Controller
@@ -166,6 +169,102 @@ class TaskController extends Controller
         } catch (AuthorizationException $e) {
             return redirect()->back()
                 ->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Change task status (from Kanban board)
+     */
+    public function changeStatus(Request $request, Task $task, ChangeTaskStatusAction $action): JsonResponse
+    {
+        try {
+            $request->validate([
+                'status' => 'required|string|in:created,accepted,in_progress,in_review,done',
+                'from_ordered_task_ids' => 'required|array',
+                'to_ordered_task_ids' => 'required|array',
+            ]);
+
+            $toStatus = TaskStatus::from($request->status);
+
+            // Usar la action para cambiar status (que notifica)
+            $action->execute(
+                actor: $request->user(),
+                task: $task,
+                toStatus: $toStatus,
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent(),
+            );
+
+            // Actualizar orden de las tareas
+            $this->updateTaskOrder(
+                TaskStatus::from($task->status->value),
+                $request->from_ordered_task_ids
+            );
+            $this->updateTaskOrder(
+                $toStatus,
+                $request->to_ordered_task_ids
+            );
+
+            return response()->json(['success' => true]);
+        } catch (AuthorizationException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Move task endpoint (drag & drop within same status)
+     */
+    public function move(Request $request, Task $task): JsonResponse
+    {
+        try {
+            $request->validate([
+                'to_status' => 'required|string|in:created,accepted,in_progress,in_review,done',
+                'from_ordered_task_ids' => 'required|array',
+                'to_ordered_task_ids' => 'required|array',
+            ]);
+
+            $toStatus = TaskStatus::from($request->to_status);
+
+            // Si el status cambió, usar changeStatus
+            if ($task->status->value !== $toStatus->value) {
+                $action = app(ChangeTaskStatusAction::class);
+                $action->execute(
+                    actor: $request->user(),
+                    task: $task,
+                    toStatus: $toStatus,
+                    ipAddress: $request->ip(),
+                    userAgent: $request->userAgent(),
+                );
+            }
+
+            // Actualizar orden
+            $this->updateTaskOrder(
+                TaskStatus::from($task->status->value),
+                $request->from_ordered_task_ids
+            );
+
+            if ($task->status->value !== $toStatus->value) {
+                $this->updateTaskOrder(
+                    $toStatus,
+                    $request->to_ordered_task_ids
+                );
+            }
+
+            return response()->json(['success' => true]);
+        } catch (AuthorizationException $e) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    private function updateTaskOrder(TaskStatus $status, array $taskIds): void
+    {
+        foreach ($taskIds as $index => $taskId) {
+            Task::where('id', $taskId)
+                ->update(['sort_order' => ($index + 1) * 10]);
         }
     }
 
