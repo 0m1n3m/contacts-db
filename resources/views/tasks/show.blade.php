@@ -366,7 +366,57 @@
                         </div>
                     </div>
 
-                    <!-- Info -->
+                    <!-- Time Tracking Metrics -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 border-b">
+                            <h3 class="text-lg font-semibold">Time Metrics</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <!-- Lead Time -->
+                            <div class="flex justify-between items-center pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-700">Lead Time</span>
+                                <span class="text-sm font-semibold text-gray-900">
+                                    @if ($task->completed_at)
+                                        {{ number_format($task->getLeadTimeInDays(), 2) }} working days
+                                    @else
+                                        <span class="text-amber-600">In Progress</span>
+                                    @endif
+                                </span>
+                            </div>
+
+                            <!-- Dev Time -->
+                            <div class="flex justify-between items-center pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-700">Dev Time</span>
+                                <span class="text-sm font-semibold text-blue-600">
+                                    {{ number_format($task->getDevTimeInDays(), 2) }} working days
+                                </span>
+                            </div>
+
+                            <!-- Review Time -->
+                            <div class="flex justify-between items-center pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-700">Review Time</span>
+                                <span class="text-sm font-semibold text-yellow-600">
+                                    {{ number_format($task->getReviewTimeInDays(), 2) }} working days
+                                </span>
+                            </div>
+
+                            <!-- Backward Transitions -->
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700">Re-openings</span>
+                                <span class="text-sm font-semibold 
+                                    @if ($task->backward_transitions > 0)
+                                        text-red-600
+                                    @else
+                                        text-green-600
+                                    @endif
+                                ">
+                                    {{ $task->backward_transitions }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dates Info -->
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div class="p-6 border-b">
                             <h3 class="text-lg font-semibold">Dates</h3>
@@ -375,6 +425,9 @@
                             <p>Created: {{ $task->created_at->format('Y-m-d H:i') }}</p>
                             <p>Updated: {{ $task->updated_at->format('Y-m-d H:i') }}</p>
                             <p>Due date: {{ $task->due_at ? $task->due_at->format('Y-m-d H:i') : '—' }}</p>
+                            @if ($task->completed_at)
+                                <p class="text-green-600 font-semibold">Completed: {{ $task->completed_at->format('Y-m-d H:i') }}</p>
+                            @endif
                         </div>
                     </div>
                 </div>

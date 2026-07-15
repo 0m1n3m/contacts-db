@@ -33,11 +33,14 @@
                                 <label class="block text-sm font-medium text-gray-700">Project</label>
                                 <select name="project_id" class="mt-1 block w-full border rounded shadow-sm p-2 border-gray-300">
                                     <option value="">— None —</option>
-                                    @foreach ($projects as $project)
-                                        <option value="{{ $project->id }}" {{ old('project_id') == $project->id ? 'selected' : '' }}>
+                                    @forelse ($projects as $project)
+                                        <option value="{{ $project->id }}" 
+                                            @if(old('project_id') == $project->id || request('project_id') == $project->id) selected @endif>
                                             {{ $project->name }}
                                         </option>
-                                    @endforeach
+                                    @empty
+                                        <option disabled>No active projects</option>
+                                    @endforelse
                                 </select>
                                 @error('project_id')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

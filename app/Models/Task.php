@@ -4,7 +4,8 @@ namespace App\Models;
 
 use App\Enums\TaskPriority;
 use App\Enums\TaskStatus;
-use Illuminate\Database\Eloquent\Builder;    
+use App\Helpers\WorkingTimeHelper;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -23,6 +24,12 @@ class Task extends Model
         'due_at',
         'last_activity_at',
         'last_due_soon_reminded_at',
+        'lead_time',
+        'dev_time',
+        'review_time',
+        'backward_transitions',
+        'entered_current_status_at',
+        'completed_at',
     ];
 
     protected $casts = [
@@ -31,6 +38,8 @@ class Task extends Model
         'due_at' => 'datetime',
         'last_activity_at' => 'datetime',
         'last_due_soon_reminded_at' => 'datetime',
+        'entered_current_status_at' => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     public function project(): BelongsTo
@@ -133,5 +142,76 @@ class Task extends Model
             ->where('status', $statusValue)
             ->orderBy('sort_order')
             ->orderBy('id');
+    }
+
+    /**
+     * Obtener auditoría de cambios de estado
+     */
+    public function statusChanges()
+    {
+        return $this->morphMany(AuditLog::class, 'entity')
+            ->where('action', 'status_changed')
+            ->orderBy('created_at');
+    }
+
+    /**
+     * Conversores de tiempo
+     */
+    public function getLeadTimeInHours(): float
+    {
+        return WorkingTimeHelper::secondsToWorkingHours($this->lead_time);
+    }
+
+    public function getLeadTimeInDays(): float
+    {
+        return WorkingTimeHelper::secondsToWorkingDays($this->lead_time);
+    }
+
+    public function getDevTimeInHours(): float
+    {
+        return WorkingTimeHelper::secondsToWorkingHours($this->dev_time);
+    }
+
+    public function getDevTimeInDays(): float
+    {
+        return WorkingTimeHelper::secondsToWorkingDays($this->dev_time);
+    }
+
+    public function getReviewTimeInHours(): float
+    {
+        return WorkingTimeHelper::secondsToWorkingHours($this->review_time);
+    }
+
+    public function getReviewTimeInDays(): float
+    {
+        return WorkingTimeHelper::secondsToWorkingDays($this->review_time);
+    }
+
+    public function getLeadTimeFormatted(): string
+    {
+        return WorkingTimeHelper::formatWorkingTime($this->lead_time);
+    }
+
+    public function getDevTimeFormatted(): string
+    {
+        return WorkingTimeHelper::formatWorkingTime($this->dev_time);
+    }
+
+    public function getReviewTimeFormatted(): string
+    {
+        return WorkingTimeHelper::formatWorkingTime($this->review_time);
+    }
+
+    /**
+     * Obtener historial formateado de cambios de estado
+     */
+    public function getStatusHistory()
+    {
+        return $this->statusChanges()->with('actor')->get()->map(fn($log) => [
+            'from' => $log->before['status'] ?? 'unknown',
+            'to' => $log->after['status'],
+            'changed_by' => $log->actor?->name,
+            'changed_at' => $log->created_at->format('Y-m-d H:i:s'),
+        ]);
     }
 }

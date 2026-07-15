@@ -19,6 +19,11 @@
                         {{ __('Contacts') }}
                     </x-nav-link>
 
+                    <!-- Projects Link -->
+                    <x-nav-link :href="route('projects.index')" :active="request()->routeIs('projects.*')">
+                        {{ __('Projects') }}
+                    </x-nav-link>
+
                     <!-- Tasks Dropdown with Hover -->
                     <div class="relative inline-flex items-center" x-data="{ tasksOpen: false }" @mouseenter="tasksOpen = true" @mouseleave="tasksOpen = false">
                         <button class="inline-flex items-center px-1 pt-1 border-b-2 {{ request()->routeIs('tasks.*') ? 'border-indigo-400 text-gray-900' : 'border-transparent text-gray-500' }} text-sm font-medium leading-5 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:text-gray-700 focus:border-gray-300 transition duration-150 ease-in-out h-16">
@@ -53,9 +58,11 @@
                         </div>
                     </div>
 
-                    <x-nav-link :href="route('admin.invitations.index')" :active="request()->routeIs('admin.invitations.*')">
-                        {{ __('Invitations') }}
-                    </x-nav-link>
+                    @if (auth()->user()->role === 'admin')
+                        <x-nav-link :href="route('admin.invitations.index')" :active="request()->routeIs('admin.invitations.*')">
+                            {{ __('Invitations') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -119,6 +126,11 @@
                 {{ __('Contacts') }}
             </x-responsive-nav-link>
 
+            <!-- Projects Link (Mobile) -->
+            <x-responsive-nav-link :href="route('projects.index')" :active="request()->routeIs('projects.*')">
+                {{ __('Projects') }}
+            </x-responsive-nav-link>
+
             <!-- Tasks Section (Mobile) -->
             <div class="border-t border-gray-200 pt-2">
                 <div class="px-4 py-2 text-sm font-medium text-gray-900">
@@ -137,9 +149,11 @@
                 </x-responsive-nav-link>
             </div>
 
-            <x-responsive-nav-link :href="route('admin.invitations.index')" :active="request()->routeIs('admin.invitations.*')">
-                {{ __('Invitations') }}
-            </x-responsive-nav-link>
+            @if (auth()->user()->role === 'admin')
+                <x-responsive-nav-link :href="route('admin.invitations.index')" :active="request()->routeIs('admin.invitations.*')">
+                    {{ __('Invitations') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

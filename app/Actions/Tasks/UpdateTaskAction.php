@@ -46,6 +46,7 @@ class UpdateTaskAction
             'description' => $task->description,
             'priority' => $task->priority?->value,
             'due_at' => $task->due_at?->toIso8601String(),
+            'project_id' => $task->project_id,
         ];
 
         return DB::transaction(function () use ($actor, $task, $data, $before, $ipAddress, $userAgent) {
@@ -75,6 +76,12 @@ class UpdateTaskAction
             // Update due_at
             if (array_key_exists('due_at', $data)) {
                 $task->due_at = $data['due_at'];
+                $changed = true;
+            }
+
+            // Update project_id
+            if (array_key_exists('project_id', $data)) {
+                $task->project_id = $data['project_id'];
                 $changed = true;
             }
 
@@ -122,6 +129,7 @@ class UpdateTaskAction
                 'description' => $task->description,
                 'priority' => $task->priority?->value,
                 'due_at' => $task->due_at?->toIso8601String(),
+                'project_id' => $task->project_id,
             ];
 
             AuditLog::create([
