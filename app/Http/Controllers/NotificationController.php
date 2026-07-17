@@ -64,6 +64,22 @@ class NotificationController extends Controller
     }
 
     /**
+     * Mark all as read (AJAX - sin redirect)
+     */
+    public function markAllAsReadAjax(): JsonResponse
+    {
+        auth()->user()
+            ->notifications()
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'All notifications marked as read.',
+        ]);
+    }
+
+    /**
      * Delete notification
      */
     public function destroy(Notification $notification): RedirectResponse

@@ -12,6 +12,8 @@ use App\Http\Requests\Tasks\StoreTaskRequest;
 use App\Http\Requests\Tasks\UpdateTaskRequest;
 use App\Models\Task;
 use App\Models\Project;
+use App\Models\Tag;
+use App\Models\TaskDependency;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -107,10 +109,18 @@ class TaskController extends Controller
             'comments',
             'attachments.versions',
             'timeEntries.user',
+            'tags',
+            'dependencies.dependentTask',
+            'subtasks.task',
         ]);
+
+        $availableTags = Tag::all();
+        $allTasks = Task::where('id', '!=', $task->id)->get();
 
         return view('tasks.show', [
             'task' => $task,
+            'availableTags' => $availableTags,
+            'allTasks' => $allTasks,
         ]);
     }
 

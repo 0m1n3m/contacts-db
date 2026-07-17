@@ -24,6 +24,28 @@
             }
             this.loading = false;
         },
+        async markAllAsRead() {
+            try {
+                const response = await fetch('{{ route("notifications.markAllAsReadAjax") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content
+                    }
+                });
+                
+                if (response.ok) {
+                    this.count = 0;
+                    this.notifications = this.notifications.map(n => ({
+                        ...n,
+                        read_at: new Date().toISOString()
+                    }));
+                    await this.fetchCount();
+                }
+            } catch (error) {
+                console.error('Error marcando como leído:', error);
+            }
+        },
         formatTime(date) {
             const now = new Date();
             const created = new Date(date);
@@ -46,7 +68,7 @@
      }" 
      x-init="
         fetchCount();
-        setInterval(() => fetchCount(), 30000);
+        setInterval(() => fetchCount(), 60000);
      "
      @click.outside="open = false">
     
@@ -70,9 +92,17 @@
         
         <div class="p-4 border-b flex justify-between items-center">
             <h3 class="font-semibold text-gray-900">Notifications</h3>
-            <a href="{{ route('notifications.index') }}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                View All
-            </a>
+            <div class="flex gap-2">
+                @if (auth()->user()->notifications()->whereNull('read_at')->count() > 0)
+                    <button @click="markAllAsRead()" 
+                            class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        Mark all as read
+                    </button>
+                @endif
+                <a href="{{ route('notifications.index') }}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    View All
+                </a>
+            </div>
         </div>
 
         <!-- Notification List -->

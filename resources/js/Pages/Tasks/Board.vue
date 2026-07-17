@@ -245,51 +245,52 @@ async function onEnd(_status, evt) {
                 :class="getCursorClass(task)"
               >
                 {{ task.title }}
-              </a>
+              
 
-              <div class="text-xs text-gray-500 mb-2">
-                status {{ task.status }}
-                <span class="ml-2">
-                  (assigned_to_me: {{ task.assigned_to_me ? 'yes' : 'no' }})
-                </span>
-              </div>
+                <div class="text-xs text-gray-500 mb-2">
+                  status {{ task.status }}
+                  <span class="ml-2">
+                    (assigned_to_me: {{ task.assigned_to_me ? 'yes' : 'no' }})
+                  </span>
+                </div>
+              </a>
 
               <!-- Botones de control -->
               <div class="flex flex-wrap gap-1" v-if="canMoveTask(task)">
                 <!-- Mover dentro del status -->
                 <button
-                  v-if="canMoveUp(task)"
+                  v-if="canMoveUp(task) && role !== 'viewer'"
                   @click="moveTaskWithinStatus(task, 'up')"
                   class="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition"
                   title="Move up"
                 >
-                  ↑
+                  <i class="fa-solid fa-arrow-up-short-wide"></i>
                 </button>
                 <button
-                  v-if="canMoveDown(task)"
+                  v-if="canMoveDown(task) && role !== 'viewer'"
                   @click="moveTaskWithinStatus(task, 'down')"
                   class="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition"
                   title="Move down"
                 >
-                  ↓
+                  <i class="fa-solid fa-arrow-down-short-wide"></i>
                 </button>
 
                 <!-- Cambiar status -->
                 <button
                   v-if="canChangeStatus(task, 'up')"
                   @click="changeTaskStatus(task, 'up')"
-                  class="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded hover:bg-blue-300 transition"
+                  class="px-2 py-1 bg-gray-200 text-blue-700 text-xs rounded hover:bg-blue-300 transition"
                   title="Move to previous status"
                 >
-                  ←
+                  <i class="fa-solid fa-arrow-turn-up"></i>
                 </button>
                 <button
                   v-if="canChangeStatus(task, 'down')"
                   @click="changeTaskStatus(task, 'down')"
-                  class="px-2 py-1 bg-green-200 text-green-700 text-xs rounded hover:bg-green-300 transition"
+                  class="px-2 py-1 bg-gray-200 text-green-700 text-xs rounded hover:bg-green-300 transition"
                   title="Move to next status"
                 >
-                  →
+                  <i class="fa-solid fa-arrow-turn-down"></i>
                 </button>
               </div>
             </div>

@@ -16,21 +16,9 @@ class TaskAssignmentController extends Controller
      */
     public function accept(TaskAssignment $assignment): RedirectResponse
     {
-        Log::info('Accept method called', [
-            'auth_id' => auth()->id(),
-            'assignment_user_id' => $assignment->user_id,
-            'assignment_id' => $assignment->id,
-        ]);
-
         if (auth()->id() !== $assignment->user_id) {
-            Log::error('Authorization failed in accept', [
-                'auth_id' => auth()->id(),
-                'assignment_user_id' => $assignment->user_id,
-            ]);
             abort(403, 'You can only accept your own assignments.');
         }
-
-        Log::info('Authorization passed');
 
         $task = $assignment->task;
 

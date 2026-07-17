@@ -90,17 +90,6 @@ class MoveTaskAction
             return;
         }
 
-        $scopeQuery = Task::query()->whereIn('id', $orderedTaskIds);
-        if (is_null($projectId)) {
-            $scopeQuery->whereNull('project_id');
-        } else {
-            $scopeQuery->where('project_id', $projectId);
-        }
-
-        if ($scopeQuery->count() !== count($orderedTaskIds)) {
-            throw new RuntimeException('ordered_task_ids contains tasks outside the current board scope.');
-        }
-
         $columnQuery = Task::query()
             ->where('status', $status->value)
             ->whereIn('id', $orderedTaskIds);

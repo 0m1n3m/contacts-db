@@ -207,8 +207,171 @@
                     </div>
                 </div>
 
-                <!-- Sidebar -->
+                                <!-- Sidebar -->
                 <div class="space-y-6">
+
+                    <!-- Tags Section -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 border-b">
+                            <h3 class="text-lg font-semibold">Etiquetas</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <!-- Tags actuales -->
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                @forelse($task->tags as $tag)
+                                    <div class="flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm" 
+                                         style="background-color: {{ $tag->color }}">
+                                        <span>{{ $tag->name }}</span>
+                                        @if (auth()->user()->role !== 'viewer' && (auth()->id() === $task->created_by || auth()->user()->role === 'admin'))
+                                            <form action="{{ route('tasks.tags.detach', [$task, $tag]) }}" 
+                                                  method="POST" 
+                                                  class="inline"
+                                                  onsubmit="return confirm('¿Remover esta etiqueta?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="hover:opacity-75 ml-1">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @empty
+                                    <p class="text-gray-500 text-sm">Sin etiquetas</p>
+                                @endforelse
+                            </div>
+
+                            <!-- Agregar tag -->
+                            @if (auth()->user()->role !== 'viewer' && (auth()->id() === $task->created_by || auth()->user()->role === 'admin'))
+                                <form action="{{ route('tasks.tags.attach', $task) }}" method="POST" class="flex flex-col gap-2">
+                                    @csrf
+                                    <select name="tag_id" class="flex-1 rounded border border-gray-300" required>
+                                        <option value="">Seleccionar etiqueta...</option>
+                                        @foreach($availableTags as $tag)
+                                            @if(!$task->tags->contains($tag->id))
+                                                <option value="{{ $tag->id }}">{{ $tag->name }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                                        Agregar
+                                    </button>
+                                </form>
+                            @endif
+
+                            <!-- Crear nuevo tag -->
+                            @if (auth()->user()->role !== 'viewer' && (auth()->id() === $task->created_by || auth()->user()->role === 'admin'))
+                                <details class="border-t pt-3">
+                                    <summary class="cursor-pointer font-semibold text-gray-700 text-sm">+ Crear etiqueta</summary>
+                                    <form action="{{ route('tags.store') }}" method="POST" class="mt-3 space-y-3">
+                                        @csrf
+                                        <div>
+                                            <input type="text" name="name" class="w-full rounded border-gray-300 text-sm" placeholder="Nombre" required>
+                                        </div>
+                                        <div>
+                                            <input type="color" name="color" class="h-8 w-16 rounded border-gray-300" value="#3B82F6">
+                                        </div>
+                                        <button type="submit" class="w-full px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm">
+                                            Crear
+                                        </button>
+                                    </form>
+                                </details>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Dependencies Section -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 border-b">
+                            <h3 class="text-lg font-semibold">Dependencias</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <!-- Tareas de las que depende -->
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2 text-sm">Depende de:</h4>
+                                @forelse($task->dependencies as $dep)
+                                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded mb-2 text-sm">
+                                        <div class="flex-1">
+                                            <a href="{{ route('tasks.show', $dep->dependentTask) }}" class="text-blue-600 hover:underline">
+                                                {{ $dep->dependentTask->title }}
+                                            </a>
+                                            <span class="text-xs text-gray-500 ml-2">
+                                                ({{ $dep->dependentTask->status }})
+                                            </span>
+                                        </div>
+                                        @if (auth()->user()->role !== 'viewer' && (auth()->id() === $task->created_by || auth()->user()->role === 'admin'))
+                                            <form action="{{ route('tasks.dependencies.destroy', [$task, $dep]) }}" 
+                                                  method="POST" 
+                                                  class="ml-2"
+                                                  onsubmit="return confirm('¿Eliminar dependencia?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-800">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @empty
+                                    <p class="text-gray-500 text-xs">No tiene dependencias</p>
+                                @endforelse
+                            </div>
+
+                            <!-- Subtareas (tareas que dependen de esta) -->
+                            <div class="border-t pt-3">
+                                <h4 class="font-medium text-gray-700 mb-2 text-sm">Bloqueadas por esta:</h4>
+                                @forelse($task->subtasks as $sub)
+                                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded mb-2 text-sm">
+                                        <div class="flex-1">
+                                            <a href="{{ route('tasks.show', $sub->task) }}" class="text-blue-600 hover:underline">
+                                                {{ $sub->task->title }}
+                                            </a>
+                                            <span class="text-xs text-gray-500 ml-2">
+                                                ({{ $sub->task->status }})
+                                            </span>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-gray-500 text-xs">No hay tareas dependientes</p>
+                                @endforelse
+                            </div>
+
+                            <!-- Crear dependencia -->
+                            @if (auth()->user()->role !== 'viewer' && (auth()->id() === $task->created_by || auth()->user()->role === 'admin'))
+                                <details class="border-t pt-3">
+                                    <summary class="cursor-pointer font-semibold text-gray-700 text-sm">+ Agregar dependencia</summary>
+                                    <form action="{{ route('tasks.dependencies.store', $task) }}" method="POST" class="mt-3 space-y-3">
+                                        @csrf
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Tarea requerida:</label>
+                                            <select name="dependent_task_id" class="w-full rounded border-gray-300 text-sm" required>
+                                                <option value="">Seleccionar...</option>
+                                                @foreach($allTasks as $t)
+                                                    @if($t->id !== $task->id && !$task->dependencies->contains('dependent_task_id', $t->id))
+                                                        <option value="{{ $t->id }}">{{ $t->title }}</option>
+                                                    @endif
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Tipo:</label>
+                                            <select name="type" class="w-full rounded border-gray-300 text-sm">
+                                                <option value="depends_on">Depende de</option>
+                                                <option value="blocks">Bloquea</option>
+                                                <option value="relates_to">Relacionada</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="w-full px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                                            Agregar
+                                        </button>
+                                    </form>
+                                </details>
+                            @endif
+                        </div>
+                    </div>
 
                     <!-- Assignments -->
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -266,8 +429,6 @@
                             @endif
                         </div>
                     </div>
-
-
 
                     <!-- Attachments Section -->
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">

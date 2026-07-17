@@ -12,6 +12,9 @@ use App\Http\Controllers\TaskBoardController;
 use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskMoveController;
+use App\Http\Controllers\TagController;
+use App\Http\Controllers\TaskTagController;
+use App\Http\Controllers\TaskDependencyController;
 use App\Http\Controllers\Admin\UserInvitationController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
 
@@ -176,21 +179,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])
         ->name('notifications.markAllAsRead');
 
-    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])
-        ->name('notifications.destroy');
-
-    // Notifications - Web Routes
-    Route::get('/notifications', [NotificationController::class, 'index'])
-        ->name('notifications.index');
-
-    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
-        ->name('notifications.unreadCount');
-
-    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
-        ->name('notifications.markAsRead');
-
-    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])
-        ->name('notifications.markAllAsRead');
+    Route::post('/notifications/mark-all-read-ajax', [NotificationController::class, 'markAllAsReadAjax'])
+    ->name('notifications.markAllAsReadAjax');
 
     Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])
         ->name('notifications.destroy');
@@ -227,4 +217,44 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
         ->middleware('role:admin,editor')
         ->name('projects.destroy');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    // ===== TAGS (Blade) =====
+    Route::post('/tags', [TagController::class, 'store'])->name('tags.store');
+    Route::patch('/tags/{tag}', [TagController::class, 'update'])->name('tags.update');
+    Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
+
+    // ===== TASK TAGS (Blade) =====
+    Route::post('/tasks/{task}/tags', [TaskTagController::class, 'attach'])->name('tasks.tags.attach');
+    Route::delete('/tasks/{task}/tags/{tag}', [TaskTagController::class, 'detach'])->name('tasks.tags.detach');
+
+    // ===== TASK DEPENDENCIES (Blade) =====
+    Route::post('/tasks/{task}/dependencies', [TaskDependencyController::class, 'store'])->name('tasks.dependencies.store');
+    Route::delete('/tasks/{task}/dependencies/{dependency}', [TaskDependencyController::class, 'destroy'])->name('tasks.dependencies.destroy');
+});
+
+// ===== API ROUTES =====
+Route::middleware(['auth', 'verified'])->prefix('api')->group(function () {
+    // ===== TAGS =====
+    Route::prefix('tags')->group(function () {
+        Route::get('/', [TagController::class, 'index']);                    // GET  /api/tags
+        Route::post('/', [TagController::class, 'store']);                   // POST /api/tags
+        Route::patch('/{tag}', [TagController::class, 'update']);            // PATCH /api/tags/{tag}
+        Route::delete('/{tag}', [TagController::class, 'destroy']);          // DELETE /api/tags/{tag}
+    });
+
+    // ===== TASK TAGS =====
+    Route::prefix('tasks/{task}/tags')->group(function () {
+        Route::get('/', [TaskTagController::class, 'getTags']);              // GET /api/tasks/{task}/tags
+        Route::post('/{tag}', [TaskTagController::class, 'attach']);         // POST /api/tasks/{task}/tags/{tag}
+        Route::delete('/{tag}', [TaskTagController::class, 'detach']);       // DELETE /api/tasks/{task}/tags/{tag}
+    });
+
+    // ===== TASK DEPENDENCIES =====
+    Route::prefix('tasks/{task}/dependencies')->group(function () {
+        Route::get('/', [TaskDependencyController::class, 'getDependencies']); // GET /api/tasks/{task}/dependencies
+        Route::post('/', [TaskDependencyController::class, 'store']);          // POST /api/tasks/{task}/dependencies
+        Route::delete('/{dependency}', [TaskDependencyController::class, 'destroy']); // DELETE /api/tasks/{task}/dependencies/{dependency}
+    });
 });

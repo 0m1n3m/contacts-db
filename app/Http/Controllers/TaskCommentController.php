@@ -15,20 +15,11 @@ class TaskCommentController extends Controller
      */
     public function store(Request $request, Task $task): RedirectResponse
     {
-        \Log::info('Comment store called', [
-            'user_id' => auth()->id(),
-            'task_id' => $task->id,
-            'body' => $request->input('body'),
-        ]);
-
         $validated = $request->validate([
             'body' => 'required|string|max:5000',
         ]);
 
-        \Log::info('Validation passed', $validated);
-
         try {
-            \Log::info('Calling CommentTaskAction');
             (new CommentTaskAction())->execute(
                 actor: auth()->user(),
                 task: $task,
@@ -37,15 +28,9 @@ class TaskCommentController extends Controller
                 userAgent: $request->userAgent(),
             );
 
-            \Log::info('Comment created successfully');
             return redirect()->route('tasks.show', $task)
                 ->with('success', 'Comment added.');
         } catch (\Exception $e) {
-            \Log::error('Comment creation failed', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
             return redirect()->route('tasks.show', $task)
                 ->with('error', $e->getMessage());
         }

@@ -214,4 +214,28 @@ class Task extends Model
             'changed_at' => $log->created_at->format('Y-m-d H:i:s'),
         ]);
     }
+
+    /**
+     * Relación many-to-many con tags
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'task_tag');
+    }
+
+    /**
+     * Tareas que dependen de esta tarea (subtareas)
+     */
+    public function subtasks(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class, 'dependent_task_id', 'id');
+    }
+
+    /**
+     * Tareas de las que esta tarea depende (dependencias)
+     */
+    public function dependencies(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class, 'task_id', 'id');
+    }
 }
