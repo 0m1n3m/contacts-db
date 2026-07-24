@@ -14,7 +14,7 @@ class HelpController extends Controller
     {
         $helpContent = $this->getHelpContent();
         
-        return Inertia::render('Help/Index', [
+        return Inertia::render('Help/index', [
             'helpContent' => $helpContent,
         ]);
     }
