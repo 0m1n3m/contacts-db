@@ -17,7 +17,7 @@
                 />
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <!-- Sidebar Navigation -->
                 <div class="lg:col-span-1">
                     <div class="bg-white rounded-lg shadow-sm p-6 sticky top-20">
@@ -84,7 +84,7 @@
                 <!-- Main Content -->
                 <div class="lg:col-span-3">
                     <!-- Getting Started -->
-                    <section id="getting-started" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8">
+                    <section id="getting-started" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Getting Started</h2>
                         <div class="space-y-6">
                             <div>
@@ -103,7 +103,7 @@
                     </section>
 
                     <!-- Roles & Permissions -->
-                    <section id="roles-permissions" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="roles-permissions" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Roles & Permissions</h2>
                         <div class="space-y-6">
                             <div class="border-l-4 border-red-500 pl-4">
@@ -140,7 +140,7 @@
                     </section>
 
                     <!-- Contacts Module -->
-                    <section id="contacts" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="contacts" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Contacts Module</h2>
                         <div class="space-y-8">
                             <div>
@@ -173,7 +173,7 @@
                     </section>
 
                     <!-- Tasks Module -->
-                    <section id="tasks" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="tasks" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Tasks Module</h2>
                         <div class="space-y-8">
                             <div>
@@ -227,7 +227,7 @@
                     </section>
 
                     <!-- Projects Module -->
-                    <section id="projects" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="projects" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Projects Module</h2>
                         <div class="space-y-8">
                             <div>
@@ -247,7 +247,7 @@
                     </section>
 
                     <!-- Notifications -->
-                    <section id="notifications" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="notifications" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Notifications</h2>
                         <div class="space-y-6">
                             <div>
@@ -272,7 +272,7 @@
                     </section>
 
                     <!-- Workflows -->
-                    <section id="workflows" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="workflows" class="section-content bg-white rounded-lg shadow-sm p- mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Common Workflows</h2>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900 mb-4">Task Completion Workflow</h3>
@@ -336,7 +336,7 @@
                     </section>
 
                     <!-- Troubleshooting -->
-                    <section id="troubleshooting" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="troubleshooting" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Troubleshooting</h2>
                         <div class="space-y-6">
                             <div class="border rounded-lg p-4 bg-red-50">
@@ -355,7 +355,7 @@
                     </section>
 
                     <!-- FAQ -->
-                    <section id="faq" class="section-content bg-white rounded-lg shadow-sm p-8 mb-8 hidden">
+                    <section id="faq" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">FAQ</h2>
                         <div class="space-y-4">
                             <div class="border rounded-lg">
