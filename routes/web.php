@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ContactImportController;
+use App\Http\Controllers\HelpController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskAssignmentController;
@@ -258,3 +259,8 @@ Route::middleware(['auth', 'verified'])->prefix('api')->group(function () {
         Route::delete('/{dependency}', [TaskDependencyController::class, 'destroy']); // DELETE /api/tasks/{task}/dependencies/{dependency}
     });
 });
+
+// ===== HELP ====
+Route::get('/help', [HelpController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('help.index');
