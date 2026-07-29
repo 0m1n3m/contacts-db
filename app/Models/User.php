@@ -68,7 +68,7 @@ class User extends Authenticatable
      */
     public function taskAttachments(): HasMany
     {
-        return $this->hasMany(TaskAttachment::class, 'uploaded_by');
+        return $this->hasMany(TaskAttachment::class, 'created_by');
     }
 
     /**
