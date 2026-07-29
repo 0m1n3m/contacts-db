@@ -272,7 +272,7 @@
                     </section>
 
                     <!-- Workflows -->
-                    <section id="workflows" class="section-content bg-white rounded-lg shadow-sm p- mb-8 hidden">
+                    <section id="workflows" class="section-content bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
                         <h2 class="text-2xl font-bold text-gray-900 mb-6">Common Workflows</h2>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900 mb-4">Task Completion Workflow</h3>

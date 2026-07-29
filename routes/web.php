@@ -17,6 +17,7 @@ use App\Http\Controllers\TagController;
 use App\Http\Controllers\TaskTagController;
 use App\Http\Controllers\TaskDependencyController;
 use App\Http\Controllers\Admin\UserInvitationController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
 
 Route::get('/', function () {
@@ -85,8 +86,34 @@ Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])
     ->middleware(['auth', 'verified', 'role:admin'])
     ->name('contacts.destroy');
 
-// Admin - invitaciones
+// Admin - Gestión de Usuarios
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
+    // Usuarios
+    Route::get('/admin/users', [UserController::class, 'index'])
+        ->name('admin.users.index');
+
+    Route::get('/admin/users/create', [UserController::class, 'create'])
+        ->name('admin.users.create');
+
+    Route::post('/admin/users', [UserController::class, 'store'])
+        ->name('admin.users.store');
+
+    Route::get('/admin/users/{user}', [UserController::class, 'show'])
+        ->name('admin.users.show');
+
+    Route::get('/admin/users/{user}/edit', [UserController::class, 'edit'])
+        ->name('admin.users.edit');
+
+    Route::patch('/admin/users/{user}', [UserController::class, 'update'])
+        ->name('admin.users.update');
+
+    Route::delete('/admin/users/{user}', [UserController::class, 'destroy'])
+        ->name('admin.users.destroy');
+
+    Route::patch('/admin/users/{user}/change-password', [UserController::class, 'changePassword'])
+        ->name('admin.users.change-password');
+
+    // Invitaciones
     Route::get('/admin/invitations', [UserInvitationController::class, 'index'])
         ->name('admin.invitations.index');
 
