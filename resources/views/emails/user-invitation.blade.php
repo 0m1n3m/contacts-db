@@ -1,6 +1,6 @@
 <p>Hola,</p>
 
-<p>Has sido invitado/a a <strong>Contacts DB</strong>.</p>
+<p>Has sido invitado/a a <strong>Deskflow-OP</strong>.</p>
 
 <p>Para aceptar la invitación y crear tu contraseña, abra este enlace:</p>
 
